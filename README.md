@@ -1,36 +1,130 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Mettwear - Premium Hoodies Collection
+
+A modern Next.js e-commerce website for Mettwear, featuring a premium hoodie collection with "First Check Then Pay" policy.
+
+## Features
+
+- **Modern Design**: Clean, responsive design matching the original Mettwear aesthetic
+- **SEO Optimized**: Complete SEO setup with meta tags, structured data, and Open Graph
+- **Responsive**: Mobile-first design that works on all devices
+- **Product Showcase**: Beautiful product grid with hover effects and quick actions
+- **Customer Reviews**: Integrated review section with star ratings
+- **Performance**: Optimized images and fast loading times
+
+## Tech Stack
+
+- **Framework**: Next.js 16.0.0
+- **Styling**: Tailwind CSS 4
+- **Fonts**: Inter & Roboto from Google Fonts
+- **SEO**: Next-SEO for meta tags and structured data
+- **Images**: Next.js Image component for optimization
+
+## Project Structure
+
+```
+src/
+├── app/
+│   ├── layout.js          # Root layout with SEO configuration
+│   ├── page.js           # Home page with product showcase
+│   └── globals.css       # Global styles and Tailwind imports
+└── components/
+    ├── Header.js         # Navigation header with mobile menu
+    ├── ProductCard.js    # Individual product card component
+    ├── ProductGrid.js    # Product grid with filters and sorting
+    └── Footer.js         # Footer with newsletter and links
+```
+
+## Key Components
+
+### Header
+- Sticky navigation with logo
+- Mobile-responsive menu
+- Search, account, and cart icons
+- Announcement bar
+
+### ProductCard
+- Product image with hover effects
+- Price display with discount badges
+- Size selection
+- Quick action buttons (view, wishlist)
+- Add to cart functionality
+
+### ProductGrid
+- Responsive grid layout
+- Filter and sort options
+- View mode toggle (grid/list)
+- Load more functionality
+
+### Footer
+- Newsletter subscription
+- Social media links
+- Company information
+- Customer service links
+
+## SEO Features
+
+- Complete meta tags setup
+- Open Graph and Twitter Card support
+- Structured data (JSON-LD) for organization
+- Canonical URLs
+- Sitemap ready
+- Mobile-optimized
 
 ## Getting Started
 
-First, run the development server:
+1. **Install dependencies**:
+   ```bash
+   npm install
+   ```
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+2. **Run the development server**:
+   ```bash
+   npm run dev
+   ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+3. **Open your browser**:
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.js`. The page auto-updates as you edit the file.
+## Product Data
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+The website includes sample product data based on the original Mettwear collection:
 
-## Learn More
+- Hoodie Pack of 2 (Rs. 2,999 - 40% off)
+- Various single hoodies (Rs. 1,850 - 34% off)
+- Available in multiple colors: Black, White, Charcoal Gray, Navy Blue, Sky Blue, Beige, Army Green, Maroon, Bottle Green
+- Sizes: M, L, XL
 
-To learn more about Next.js, take a look at the following resources:
+## Customization
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Colors
+The design uses CSS custom properties for easy theming:
+- Primary: `#56cfe1` (Blue)
+- Secondary: `#222222` (Dark Gray)
+- Text Muted: `#878787` (Light Gray)
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### Fonts
+- Primary: Inter (Google Fonts)
+- Secondary: Roboto (Google Fonts)
 
-## Deploy on Vercel
+## Performance
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- Optimized images with Next.js Image component
+- Lazy loading for better performance
+- Responsive images with multiple sizes
+- CSS animations for smooth interactions
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## Browser Support
+
+- Chrome (latest)
+- Firefox (latest)
+- Safari (latest)
+- Edge (latest)
+- Mobile browsers
+
+## License
+
+This project is created for Mettwear and follows their brand guidelines and design requirements.
+
+## Contact
+
+For any questions or support, please contact the development team.
