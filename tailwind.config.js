@@ -1,5 +1,6 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
+  darkMode: ["class"],
   content: [
     './src/pages/**/*.{js,ts,jsx,tsx,mdx}',
     './src/components/**/*.{js,ts,jsx,tsx,mdx}',
@@ -8,12 +9,39 @@ module.exports = {
   theme: {
     extend: {
       colors: {
+        // legacy tokens (kept for compatibility)
         background: 'var(--background)',
         foreground: 'var(--foreground)',
         'primary-color': 'var(--primary-color)',
         'secondary-color': 'var(--secondary-color)',
         'text-muted': 'var(--text-muted)',
         'border-color': 'var(--border-color)',
+
+        // admin dashboard tokens
+        bodyBackground: 'var(--body-background)',
+        bodyForeground: 'var(--body-foreground)',
+        cardBackground: 'var(--card-background)',
+        cardForeground: 'var(--card-foreground)',
+        popoverBackground: 'var(--popover-background)',
+        popoverForeground: 'var(--popover-foreground)',
+        primary: 'var(--primary)',
+        primaryHover: 'var(--primary-hover)',
+        primaryForeground: 'var(--primary-foreground)',
+        secondaryBackground: 'var(--secondary-background)',
+        secondaryForeground: 'var(--secondary-foreground)',
+        mutedBackground: 'var(--muted-background)',
+        mutedForeground: 'var(--muted-foreground)',
+        accent: 'var(--accent)',
+        accentForeground: 'var(--accent-foreground)',
+        destructive: 'var(--destructive)',
+        destructiveForeground: 'var(--destructive-foreground)',
+        borderColor: 'var(--border-color)',
+        inputBackground: 'var(--input-background)',
+        inputForeground: 'var(--input-foreground)',
+        buttonBackground: 'var(--button-background)',
+        buttonForeground: 'var(--button-foreground)',
+        buttonHover: 'var(--button-hover)',
+        ringColor: 'var(--ring-color)'
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'Inter', 'sans-serif'],

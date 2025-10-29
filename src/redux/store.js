@@ -7,6 +7,9 @@ import { authApi } from "./api/Auth";
 import userReducer from "./slices/User";
 import cartReducer from "./slices/Cart";
 import wishlistReducer from "./slices/Wishlist";
+import productsReducer from "./slices/Products";
+import ordersReducer from "./slices/Orders";
+import customersReducer from "./slices/Customers";
 
 // Persist config
 const persistConfig = {
@@ -20,6 +23,9 @@ const rootReducer = combineReducers({
   user: userReducer,
   cart: cartReducer,
   wishlist: wishlistReducer,
+  products: productsReducer,
+  orders: ordersReducer,
+  customers: customersReducer,
   [authApi.reducerPath]: authApi.reducer,
 });
 

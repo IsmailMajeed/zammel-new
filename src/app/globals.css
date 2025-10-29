@@ -3,19 +3,67 @@
 @tailwind utilities;
 
 :root {
+  /* legacy tokens */
   --background: #ffffff;
   --foreground: #222222;
   --primary-color: #56cfe1;
   --secondary-color: #222222;
   --text-muted: #878787;
   --border-color: #e6e6e6;
+
+  /* admin dashboard design tokens */
+  --body-background: #f7f8fa;
+  --body-foreground: #0f172a;
+  --card-background: #ffffff;
+  --card-foreground: #0f172a;
+  --popover-background: #ffffff;
+  --popover-foreground: #0f172a;
+  --primary: #2563eb;
+  --primary-hover: #1e40af;
+  --primary-foreground: #ffffff;
+  --secondary-background: #f1f5f9;
+  --secondary-foreground: #0f172a;
+  --muted-background: #94a3b8;
+  --muted-foreground: #475569;
+  --accent: #22d3ee;
+  --accent-foreground: #0f172a;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --input-background: #f8fafc;
+  --input-foreground: #0f172a;
+  --button-background: #2563eb;
+  --button-foreground: #ffffff;
+  --button-hover: #1e40af;
+  --ring-color: #93c5fd;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #0a0a0a;
+  --foreground: #ededed;
+  /* dark mode variants */
+  --body-background: #0b1220;
+  --body-foreground: #e2e8f0;
+  --card-background: #0f172a;
+  --card-foreground: #e2e8f0;
+  --popover-background: #0f172a;
+  --popover-foreground: #e2e8f0;
+  --primary: #3b82f6;
+  --primary-hover: #1d4ed8;
+  --primary-foreground: #ffffff;
+  --secondary-background: #0b1220;
+  --secondary-foreground: #e2e8f0;
+  --muted-background: #475569;
+  --muted-foreground: #cbd5e1;
+  --accent: #06b6d4;
+  --accent-foreground: #e2e8f0;
+  --destructive: #ef4444;
+  --destructive-foreground: #ffffff;
+  --input-background: #0b1220;
+  --input-foreground: #e2e8f0;
+  --button-background: #3b82f6;
+  --button-foreground: #ffffff;
+  --button-hover: #1d4ed8;
+  --ring-color: #60a5fa;
 }
 
 * {

@@ -7,15 +7,18 @@ import store, { persistor } from '@/redux/store';
 import Cart from '@/components/Cart';
 import Wishlist from '@/components/Wishlist';
 import { BRAND } from '@/utils/brandConstants';
+import { ThemeProvider } from '@/contexts/ThemeContext';
 
 export function Providers({ children }) {
     return (
         <Provider store={store}>
             <PersistGate loading={<LoadingScreen />} persistor={persistor}>
-                {children}
-                <Cart />
-                <Wishlist />
-                <Toaster position="top-right" />
+                <ThemeProvider>
+                    {children}
+                    <Cart />
+                    <Wishlist />
+                    <Toaster position="top-right" />
+                </ThemeProvider>
             </PersistGate>
         </Provider>
     );
