@@ -5,7 +5,7 @@ import { axiosBaseQuery } from "../../utils/axios";
 export const authApi = createApi({
   reducerPath: "authApi",
   baseQuery: axiosBaseQuery({
-    baseUrl: process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000",
+    baseUrl: "/api/",
   }),
   endpoints: (builder) => ({
     login: builder.mutation({

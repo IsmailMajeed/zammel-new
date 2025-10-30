@@ -5,6 +5,7 @@ import { combineReducers } from "@reduxjs/toolkit";
 
 import { authApi } from "./api/Auth";
 import userReducer from "./slices/User";
+import adminUserReducer from "./slices/AdminUser";
 import cartReducer from "./slices/Cart";
 import wishlistReducer from "./slices/Wishlist";
 import productsReducer from "./slices/Products";
@@ -15,12 +16,13 @@ import customersReducer from "./slices/Customers";
 const persistConfig = {
   key: "root",
   storage,
-  whitelist: ["user", "cart", "wishlist"], // Only persist these slices
+  whitelist: ["user", "adminUser", "cart", "wishlist"], // Only persist these slices
   blacklist: ["authApi"], // Don't persist API cache
 };
 
 const rootReducer = combineReducers({
   user: userReducer,
+  adminUser: adminUserReducer,
   cart: cartReducer,
   wishlist: wishlistReducer,
   products: productsReducer,

@@ -154,7 +154,7 @@ export default function Sidebar() {
       >
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Link
-            href="/profile"
+            href="/admin/profile"
             className={`py-2 px-2 rounded transition-colors duration-200 flex items-center gap-x-1 ${pathname === "/profile" ? "bg-blue-50 text-primary" : ""
               }`}
           >

@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRegisterMutation } from '@/redux/api/Auth';
-import { toast } from 'sonner';
+import { useDispatch } from 'react-redux';
+import { setUser } from '@/redux/slices/User';
 import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, User } from 'lucide-react';
 import { BRAND } from '@/utils/brandConstants';
@@ -14,17 +15,20 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [register, { isLoading }] = useRegisterMutation();
+  const dispatch = useDispatch();
   const router = useRouter();
 
   const onSubmit = async (e) => {
     e.preventDefault();
     try {
-      await register({ name, email, password }).unwrap();
-      toast.success('Account created successfully');
-      router.push('/auth/login');
-    } catch (err) {
-      toast.error('Registration failed', { description: err?.data?.message || 'Please try again.' });
-    }
+      const res = await register({ name, email, password }).unwrap();
+      if (res?.data?.token && res?.data?.user) {
+        dispatch(setUser({ user: res.data.user, token: res.data.token }));
+        router.push('/');
+      } else {
+        router.push('/auth/login');
+      }
+    } catch (err) { }
   };
 
   return (

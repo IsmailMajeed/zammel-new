@@ -219,3 +219,8 @@ img {
   font-size: 12px;
   font-weight: 600;
 }
+
+#profile-info,
+#security {
+  scroll-margin-top: 80px;
+}

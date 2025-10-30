@@ -1,6 +1,6 @@
 import axios from "axios";
 import { toast } from "sonner";
-import { accessKey } from "./constants";
+import { accessKey, adminAccessKey } from "./constants";
 
 // Create axios instance with default config
 const axiosInstance = axios.create({
@@ -67,7 +67,9 @@ export const clearPendingQueue = () => requestQueue.clear();
 axiosInstance.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
-      const token = localStorage.getItem(accessKey);
+      const isAdminApi = typeof config.url === 'string' && config.url.includes('/admin');
+      const tokenKey = isAdminApi ? adminAccessKey : accessKey;
+      const token = localStorage.getItem(tokenKey);
       if (token) {
         if (!config.headers) config.headers = {};
         config.headers.Authorization = `Bearer ${token}`;
@@ -96,12 +98,23 @@ axiosInstance.interceptors.response.use(
 
       if (typeof window !== 'undefined') {
         const currentPath = window.location.pathname;
-        const publicPaths = ["/auth/login", "/auth/register", "/"];
+        const publicPaths = ["/auth/login", "/auth/register", "/", "/auth/admin/login"];
+
+        // If we are on admin login page, don't redirect; let UI show error
+        if (currentPath.startsWith('/auth/admin')) {
+          return Promise.reject(error);
+        }
 
         if (!publicPaths.includes(currentPath)) {
-          // Clear token and redirect
-          localStorage.removeItem(accessKey);
-          window.location.href = "/auth/login";
+          // Clear token(s) and redirect based on area
+          const isInAdminArea = currentPath.startsWith('/admin');
+          if (isInAdminArea) {
+            localStorage.removeItem(adminAccessKey);
+            window.location.href = "/auth/admin/login";
+          } else {
+            localStorage.removeItem(accessKey);
+            window.location.href = "/auth/login";
+          }
           return Promise.reject(error);
         }
       }

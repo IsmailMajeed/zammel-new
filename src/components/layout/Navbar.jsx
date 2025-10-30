@@ -11,7 +11,9 @@ import { motion, AnimatePresence } from "framer-motion"
 import Link from "next/link"
 import { useSelector, useDispatch } from "react-redux"
 import { logout as logoutAction } from "@/redux/slices/User"
-import { useRouter } from "next/navigation"
+import { logoutAdmin as logoutAdminAction } from "@/redux/slices/AdminUser"
+import { useRouter, usePathname } from "next/navigation"
+import { useLogoutMutation } from "@/redux/api/Auth"
 import Image from "next/image";
 import BRAND from "@/utils/brandConstants";
 // import ThemeToggleButton from "../ToggleThemeButton";
@@ -196,6 +198,8 @@ const notifications = [
 export default function Navbar() {
   const dispatch = useDispatch();
   const user = useSelector((state) => state.user.user);
+  const adminUser = useSelector((state) => state.adminUser.user);
+  const [logoutApi] = useLogoutMutation();
   const [isLoading, setIsLoading] = useState(false);
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const dropdownRef = useRef(null);
@@ -229,6 +233,7 @@ export default function Navbar() {
   const unreadCount = notifications.filter(notification => !notification.isRead).length;
 
   const router = useRouter();
+  const pathname = usePathname();
 
   const handleSearch = useCallback((query) => {
     setSearchQuery(query);
@@ -526,7 +531,7 @@ export default function Navbar() {
               <div className="bg-blue-100 p-1 rounded-full">
                 <FaUser size={10} className="text-lg text-primaryHover" />
               </div>
-              <span className="hidden md:inline text-sm ml-1.5">{user?.username}</span>
+              <span className="hidden md:inline text-sm ml-1.5">{(adminUser?.name || user?.username) || ''}</span>
               <RiArrowDropDownLine />
             </motion.button>
 
@@ -545,14 +550,14 @@ export default function Navbar() {
                         <FaUser className="text-xl text-primary" />
                       </div>
                       <div>
-                        <h4 className="font-medium text-popoverForeground">{user?.username}</h4>
-                        <p className="text-sm text-popoverForeground opacity-60">{user?.email}</p>
+                        <h4 className="font-medium text-popoverForeground">{(adminUser?.name || user?.username) || ''}</h4>
+                        <p className="text-sm text-popoverForeground opacity-60">{(adminUser?.email || user?.email) || ''}</p>
                       </div>
                     </div>
                   </div>
 
                   <motion.ul className="py-2">
-                    <Link href="/profile">
+                    <Link href="/admin/profile">
                       <motion.li
                         whileHover={{ backgroundColor: "var(--primary-light)" }}
                         className="px-4 py-2.5 cursor-pointer flex items-center gap-3 text-popoverForeground"
@@ -567,8 +572,17 @@ export default function Navbar() {
                       onClick={async () => {
                         try {
                           setIsLoading(true);
-                          dispatch(logoutAction());
-                          router.push("/auth/login");
+                          try {
+                            await logoutApi().unwrap();
+                          } catch (e) { }
+                          const isInAdmin = pathname?.startsWith('/admin');
+                          if (isInAdmin) {
+                            dispatch(logoutAdminAction());
+                            router.push("/auth/admin/login");
+                          } else {
+                            dispatch(logoutAction());
+                            router.push("/auth/login");
+                          }
                         } finally {
                           setIsLoading(false);
                         }

@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { Menu as LucideMenu, Heart } from 'lucide-react';
 // Ant Design imports
-import { Menu, Drawer, Button } from 'antd';
+import { Menu, Drawer, Button, Dropdown } from 'antd';
 import {
   HomeOutlined,
   AppstoreOutlined,
@@ -15,10 +15,13 @@ import {
   ShoppingCartOutlined,
   SearchOutlined,
   MenuOutlined,
+  LogoutOutlined,
 } from '@ant-design/icons';
 import { useSelector, useDispatch } from 'react-redux';
 import { openCart } from '@/redux/slices/Cart';
 import { openWishlist } from '@/redux/slices/Wishlist';
+import { logout as logoutAction } from '@/redux/slices/User';
+import { useLogoutMutation } from '@/redux/api/Auth';
 import 'antd/dist/reset.css';
 import { useRouter } from 'next/navigation';
 import { BRAND } from '@/utils/brandConstants';
@@ -56,7 +59,25 @@ export default function Header() {
   const dispatch = useDispatch();
   const { itemCount } = useSelector(state => state.cart);
   const { items: wishlistItems } = useSelector(state => state.wishlist);
+  const { user } = useSelector(state => state.user);
   const router = useRouter();
+  const [triggerLogout] = useLogoutMutation();
+
+  const handleAccountClick = () => {
+    if (user) {
+      router.push('/profile');
+    } else {
+      router.push('/auth/login');
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await triggerLogout().unwrap();
+    } catch (_) { }
+    dispatch(logoutAction());
+    router.push('/auth/login');
+  };
 
   return (
     <>
@@ -131,7 +152,32 @@ export default function Header() {
               />
               {/* Desktop actions (search/account) */}
               <div className="hidden md:flex items-center space-x-2 md:space-x-4">
-                <Button type="text" className="p-2 text-gray-700 hover:text-blue-500 transition-colors" icon={<UserOutlined />} onClick={() => router.push('/auth/login')} />
+                {user ? (
+                  <Dropdown
+                    menu={{
+                      items: [
+                        {
+                          key: 'profile',
+                          label: 'Profile',
+                          icon: <UserOutlined />,
+                          onClick: () => router.push('/profile'),
+                        },
+                        {
+                          key: 'logout',
+                          label: 'Logout',
+                          icon: <LogoutOutlined />,
+                          onClick: handleLogout,
+                        },
+                      ],
+                    }}
+                    placement="bottomRight"
+                    trigger={["click"]}
+                  >
+                    <Button type="text" className="p-2 text-gray-700 hover:text-blue-500 transition-colors" icon={<UserOutlined />} />
+                  </Dropdown>
+                ) : (
+                  <Button type="text" className="p-2 text-gray-700 hover:text-blue-500 transition-colors" icon={<UserOutlined />} onClick={handleAccountClick} />
+                )}
               </div>
             </div>
           </div>
@@ -152,16 +198,40 @@ export default function Header() {
               style={{ border: 'none' }}
             />
             <div className="flex flex-col gap-2 px-4 mt-4 md:hidden">
-              <Button
-                type="text"
-                block
-                icon={<UserOutlined />}
-                className="flex items-center justify-start text-gray-700 hover:text-blue-500 transition-colors"
-                style={{ textAlign: "left" }}
-                onClick={() => { setIsMenuOpen(false); router.push('/auth/login'); }}
-              >
-                Account
-              </Button>
+              {user ? (
+                <>
+                  <Button
+                    type="text"
+                    block
+                    icon={<UserOutlined />}
+                    className="flex items-center justify-start text-gray-700 hover:text-blue-500 transition-colors"
+                    style={{ textAlign: "left" }}
+                    onClick={() => { setIsMenuOpen(false); router.push('/profile'); }}
+                  >
+                    Profile
+                  </Button>
+                  <Button
+                    type="text"
+                    block
+                    className="flex items-center justify-start text-gray-700 hover:text-blue-500 transition-colors"
+                    style={{ textAlign: "left" }}
+                    onClick={() => { setIsMenuOpen(false); handleLogout(); }}
+                  >
+                    Logout
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  type="text"
+                  block
+                  icon={<UserOutlined />}
+                  className="flex items-center justify-start text-gray-700 hover:text-blue-500 transition-colors"
+                  style={{ textAlign: "left" }}
+                  onClick={() => { setIsMenuOpen(false); router.push('/auth/login'); }}
+                >
+                  Account
+                </Button>
+              )}
             </div>
           </Drawer>
         </div>
