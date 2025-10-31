@@ -163,11 +163,10 @@ export const axiosBaseQuery =
         const hasFile =
           body &&
           typeof body === "object" &&
-          (body.image ||
-            (Object.values(body).some &&
-              Object.values(body).some(
-                (value) => typeof File !== "undefined" && value instanceof File
-              )));
+          (Object.values(body).some &&
+            Object.values(body).some(
+              (value) => typeof File !== "undefined" && value instanceof File
+            ));
 
         // Set content type based on data
         const contentType =

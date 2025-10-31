@@ -4,6 +4,8 @@ import storage from "redux-persist/lib/storage"; // localStorage
 import { combineReducers } from "@reduxjs/toolkit";
 
 import { authApi } from "./api/Auth";
+import { productsApi } from "./api/Products";
+import { categoriesApi } from "./api/Categories";
 import userReducer from "./slices/User";
 import adminUserReducer from "./slices/AdminUser";
 import cartReducer from "./slices/Cart";
@@ -17,7 +19,7 @@ const persistConfig = {
   key: "root",
   storage,
   whitelist: ["user", "adminUser", "cart", "wishlist"], // Only persist these slices
-  blacklist: ["authApi"], // Don't persist API cache
+  blacklist: ["authApi", "productsApi", "categoriesApi"], // Don't persist API cache
 };
 
 const rootReducer = combineReducers({
@@ -29,6 +31,8 @@ const rootReducer = combineReducers({
   orders: ordersReducer,
   customers: customersReducer,
   [authApi.reducerPath]: authApi.reducer,
+  [productsApi.reducerPath]: productsApi.reducer,
+  [categoriesApi.reducerPath]: categoriesApi.reducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -42,6 +46,8 @@ const store = configureStore({
       },
     }).concat(
       authApi.middleware,
+      productsApi.middleware,
+      categoriesApi.middleware,
     ),
 });
 

@@ -5,6 +5,11 @@ import { GoLink } from "react-icons/go";
 import { FaBox, FaEdit, FaTrash, FaEye, FaPlus } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useGetProductsQuery, useDeleteProductMutation, useUpdateProductMutation } from "@/redux/api/Products";
+import Swal from "sweetalert2";
+import { useSupabaseUpload } from "@/hooks/useSupabaseUpload";
+import Pagination from "@/components/Pagination";
+import useDebounce from "@/hooks/useDebounce";
 
 const Input = ({ className, ...props }) => {
   return (
@@ -78,90 +83,117 @@ const TableCell = ({ children, className, ...props }) => {
 };
 
 export default function ProductsListPage() {
-  const [products, setProducts] = useState([
-    {
-      id: 1,
-      name: "Wireless Headphones",
-      category: "Electronics",
-      price: 29999,
-      stock: 45,
-      status: "active",
-      image: "/api/placeholder/60/60",
-      sku: "WH-001",
-      createdAt: "2024-01-15"
-    },
-    {
-      id: 2,
-      name: "Smart Watch",
-      category: "Electronics",
-      price: 19999,
-      stock: 23,
-      status: "active",
-      image: "/api/placeholder/60/60",
-      sku: "SW-002",
-      createdAt: "2024-01-14"
-    },
-    {
-      id: 3,
-      name: "Laptop Stand",
-      category: "Accessories",
-      price: 4999,
-      stock: 0,
-      status: "inactive",
-      image: "/api/placeholder/60/60",
-      sku: "LS-003",
-      createdAt: "2024-01-13"
-    },
-    {
-      id: 4,
-      name: "Mechanical Keyboard",
-      category: "Electronics",
-      price: 14999,
-      stock: 67,
-      status: "active",
-      image: "/api/placeholder/60/60",
-      sku: "MK-004",
-      createdAt: "2024-01-12"
-    },
-    {
-      id: 5,
-      name: "Gaming Mouse",
-      category: "Electronics",
-      price: 7999,
-      stock: 34,
-      status: "active",
-      image: "/api/placeholder/60/60",
-      sku: "GM-005",
-      createdAt: "2024-01-11"
-    }
-  ]);
-
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("all");
-  const [isLoading, setIsLoading] = useState(false);
+  const [page, setPage] = useState(1);
 
-  const filteredProducts = products.filter((product) => {
-    const matchesSearch = product.name.toLowerCase().includes(search.toLowerCase()) ||
-      product.sku.toLowerCase().includes(search.toLowerCase()) ||
-      product.category.toLowerCase().includes(search.toLowerCase());
+  // Debounce search input
+  const debouncedSearch = useDebounce(search, 500);
 
-    const matchesFilter = filter === "all" || product.status === filter;
-
-    return matchesSearch && matchesFilter;
+  // RTK Query hooks
+  const { data, isLoading, isError, error, refetch } = useGetProductsQuery({
+    status: filter === "all" ? undefined : filter,
+    search: debouncedSearch || undefined,
+    page,
+    limit: 10,
   });
 
-  const handleDelete = (productId) => {
-    if (window.confirm("Are you sure you want to delete this product?")) {
-      setProducts(products.filter(product => product.id !== productId));
+  const [deleteProduct, { isLoading: isDeleting }] = useDeleteProductMutation();
+  const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
+
+  // Supabase upload hook for deleting images
+  const { deleteImage } = useSupabaseUpload();
+
+  const products = data?.data?.products || [];
+  const pagination = data?.data?.pagination || {};
+
+  // Reset to page 1 when debounced search or filter changes
+  useEffect(() => {
+    setPage(1);
+  }, [debouncedSearch, filter]);
+
+  // Helper function to get first available image from product variants
+  const getFirstProductImage = (product) => {
+    if (product.variants && product.variants.length > 0) {
+      for (const variant of product.variants) {
+        if (variant.images && variant.images.length > 0) {
+          return variant.images[0];
+        }
+      }
+    }
+    return null;
+  };
+
+  const handleDelete = async (product) => {
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: `Do you want to delete "${product.name}"? This action cannot be undone!`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6',
+      confirmButtonText: 'Yes, delete it!',
+      cancelButtonText: 'Cancel',
+      reverseButtons: true
+    });
+
+    if (result.isConfirmed) {
+      try {
+        // Show loading
+        Swal.fire({
+          title: 'Deleting...',
+          text: 'Please wait while we delete the product',
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        });
+
+        // Delete all variant images from Supabase first
+        if (product.variants && product.variants.length > 0) {
+          for (const variant of product.variants) {
+            if (variant.images && variant.images.length > 0) {
+              for (const imageUrl of variant.images) {
+                if (imageUrl && imageUrl.includes('supabase')) {
+                  await deleteImage(imageUrl);
+                }
+              }
+            }
+          }
+        }
+
+        // Delete product
+        await deleteProduct(product._id).unwrap();
+
+        refetch();
+
+        // Show success message
+        Swal.fire({
+          title: 'Deleted!',
+          text: 'Product has been deleted successfully.',
+          icon: 'success',
+          timer: 2000,
+          showConfirmButton: false
+        });
+      } catch (err) {
+        // Show error message
+        Swal.fire({
+          title: 'Error!',
+          text: err?.data?.message || 'Failed to delete product. Please try again.',
+          icon: 'error',
+          confirmButtonText: 'OK'
+        });
+      }
     }
   };
 
-  const handleToggleStatus = (productId) => {
-    setProducts(products.map(product =>
-      product.id === productId
-        ? { ...product, status: product.status === "active" ? "inactive" : "active" }
-        : product
-    ));
+  const handleToggleStatus = async (product) => {
+    try {
+      const newStatus = product.status === "active" ? "inactive" : "active";
+      await updateProduct({ id: product._id, status: newStatus }).unwrap();
+      refetch();
+    } catch (err) {
+    }
   };
 
   return (
@@ -215,7 +247,7 @@ export default function ProductsListPage() {
           <option value="inactive">Inactive</option>
         </select>
         <div className="text-sm text-cardForeground/60">
-          {filteredProducts.length} products found
+          {pagination.totalItems || 0} products found
         </div>
       </motion.div>
 
@@ -241,90 +273,147 @@ export default function ProductsListPage() {
           </TableHeader>
           <AnimatePresence>
             <TableBody>
-              {filteredProducts.map((product, index) => (
-                <motion.tr
-                  key={product.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="hover:bg-gray-50"
-                >
-                  <TableCell>
-                    <div className="w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center">
-                      <FaBox className="text-gray-400" />
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8">
+                    <div className="flex justify-center">
+                      <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-primary"></div>
                     </div>
                   </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{product.name}</p>
-                      <p className="text-sm text-cardForeground/60">Added {product.createdAt}</p>
-                    </div>
+                </TableRow>
+              ) : isError ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-red-500">
+                    {error?.data?.message || "Failed to load products"}
                   </TableCell>
-                  <TableCell className="font-mono text-sm">{product.sku}</TableCell>
-                  <TableCell>
-                    <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
-                      {product.category}
-                    </span>
+                </TableRow>
+              ) : products.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
+                    No products found
                   </TableCell>
-                  <TableCell className="font-bold">₨{product.price.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${product.stock > 10
-                      ? 'bg-green-100 text-green-800'
-                      : product.stock > 0
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-red-100 text-red-800'
-                      }`}>
-                      {product.stock} units
-                    </span>
-                  </TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => handleToggleStatus(product.id)}
-                      className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${product.status === 'active'
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : 'bg-red-100 text-red-800 hover:bg-red-200'
-                        }`}
-                    >
-                      {product.status === 'active' ? 'Active' : 'Inactive'}
-                    </button>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2 items-center">
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="text-blue-600 hover:text-blue-800 p-1"
+                </TableRow>
+              ) : (
+                products.map((product, index) => (
+                  <motion.tr
+                    key={product.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="hover:bg-gray-50"
+                  >
+                    <TableCell>
+                      {getFirstProductImage(product) ? (
+                        <img
+                          src={getFirstProductImage(product)}
+                          alt={product.name}
+                          className="w-12 h-12 object-cover rounded-lg border border-gray-200"
+                          onError={(e) => {
+                            e.target.onerror = null;
+                            e.target.style.display = 'none';
+                            if (e.target.nextSibling) {
+                              e.target.nextSibling.style.display = 'flex';
+                            }
+                          }}
+                        />
+                      ) : null}
+                      <div
+                        className={`w-12 h-12 bg-gray-100 rounded-lg flex items-center justify-center ${getFirstProductImage(product) ? 'hidden' : 'flex'}`}
                       >
-                        <FaEye />
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="text-green-600 hover:text-green-800 p-1"
+                        <FaBox className="text-gray-400" />
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{product.name}</p>
+                        <p className="text-sm text-cardForeground/60">
+                          Added {new Date(product.createdAt).toLocaleDateString()}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {product.variants?.[0]?.sku || 'N/A'}
+                    </TableCell>
+                    <TableCell>
+                      <span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs">
+                        {product.category?.name || 'N/A'}
+                      </span>
+                    </TableCell>
+                    <TableCell className="font-bold">
+                      ₨{product.priceRange?.min?.toLocaleString() || 0}
+                      {product.priceRange?.min !== product.priceRange?.max && (
+                        <> - ₨{product.priceRange?.max?.toLocaleString()}</>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${product.totalStock > 10
+                        ? 'bg-green-100 text-green-800'
+                        : product.totalStock > 0
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                        }`}>
+                        {product.totalStock || 0} units
+                      </span>
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        onClick={() => handleToggleStatus(product)}
+                        disabled={isUpdating}
+                        className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${product.status === 'active'
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : 'bg-red-100 text-red-800 hover:bg-red-200'
+                          } disabled:opacity-50`}
                       >
-                        <FaEdit />
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        onClick={() => handleDelete(product.id)}
-                        className="text-red-600 hover:text-red-800 p-1"
-                      >
-                        <FaTrash />
-                      </motion.button>
-                    </div>
-                  </TableCell>
-                </motion.tr>
-              ))}
+                        {product.status === 'active' ? 'Active' : 'Inactive'}
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2 items-center">
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="text-blue-600 hover:text-blue-800 p-1"
+                        >
+                          <FaEye />
+                        </motion.button>
+                        <Link href={`/admin/products/edit/${product._id}`}>
+                          <motion.button
+                            whileHover={{ scale: 1.05 }}
+                            whileTap={{ scale: 0.95 }}
+                            className="text-green-600 hover:text-green-800 p-1"
+                          >
+                            <FaEdit />
+                          </motion.button>
+                        </Link>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={() => handleDelete(product)}
+                          disabled={isDeleting}
+                          className="text-red-600 hover:text-red-800 p-1 disabled:opacity-50"
+                          title="Delete Product"
+                        >
+                          <FaTrash />
+                        </motion.button>
+                      </div>
+                    </TableCell>
+                  </motion.tr>
+                )))}
             </TableBody>
           </AnimatePresence>
         </Table>
       </motion.div>
 
-      {isLoading && (
-        <div className="fixed top-0 left-0 right-0 bottom-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        </div>
+      {/* Pagination */}
+      {pagination.totalPages > 1 && (
+        <Pagination
+          currentPage={pagination.currentPage || 1}
+          totalPages={pagination.totalPages || 1}
+          totalItems={pagination.totalItems || 0}
+          itemsPerPage={pagination.itemsPerPage || 10}
+          onPageChange={setPage}
+          showJumpTo={true}
+        />
       )}
     </motion.div>
   );

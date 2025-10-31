@@ -6,3 +6,19 @@ export const AUTH_ENDPOINTS = {
   ADMIN_LOGIN: `auth/admin/login`,
   CHANGE_PASSWORD: "auth/change-password",
 };
+
+export const PRODUCT_ENDPOINTS = {
+  GET_ALL: `products`,
+  GET_BY_ID: (id) => `products/${id}`,
+  CREATE: `products`,
+  UPDATE: (id) => `products/${id}`,
+  DELETE: (id) => `products/${id}`,
+};
+
+export const CATEGORY_ENDPOINTS = {
+  GET_ALL: `categories`,
+  GET_BY_ID: (id) => `categories/${id}`,
+  CREATE: `categories`,
+  UPDATE: (id) => `categories/${id}`,
+  DELETE: (id) => `categories/${id}`,
+};

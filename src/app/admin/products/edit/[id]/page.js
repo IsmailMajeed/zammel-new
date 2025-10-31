@@ -1,10 +1,13 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FaBox, FaSave, FaArrowLeft, FaUpload, FaTrash } from "react-icons/fa";
+import { FaSave, FaArrowLeft, FaPlus, FaTrash } from "react-icons/fa";
 import { motion } from "framer-motion";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
+import { useUpdateProductMutation, useGetProductByIdQuery } from "@/redux/api/Products";
+import { useGetCategoriesQuery } from "@/redux/api/Categories";
+import { useSupabaseUpload } from "@/hooks/useSupabaseUpload";
 
 const Input = ({ className, ...props }) => {
   return (
@@ -36,126 +39,201 @@ const Button = ({ className, children, ...props }) => {
 };
 
 export default function EditProductPage() {
+  const router = useRouter();
   const params = useParams();
-  const productId = params.id;
+  const productId = params?.id;
+
+  const { upload, deleteImage, loading: isUploading } = useSupabaseUpload();
+
+  const { data: productData, isLoading: isLoadingProduct, error: productError } = useGetProductByIdQuery(productId);
+  // Fetch all categories (active and inactive) for edit page
+  const { data: categoriesData } = useGetCategoriesQuery({ status: "active", limit: 1000 });
+  const [updateProduct, { isLoading: isUpdating }] = useUpdateProductMutation();
 
   const [formData, setFormData] = useState({
-    name: "Wireless Headphones",
-    description: "High-quality wireless headphones with noise cancellation and premium sound quality. Perfect for music lovers and professionals.",
-    price: "29999",
-    sku: "WH-001",
-    category: "Electronics",
-    stock: "45",
+    name: "",
+    description: "",
+    category: "",
     status: "active",
-    images: [
-      { id: 1, url: "/api/placeholder/200/200", isMain: true },
-      { id: 2, url: "/api/placeholder/200/200", isMain: false },
-      { id: 3, url: "/api/placeholder/200/200", isMain: false }
-    ],
-    specifications: {
-      brand: "TechSound",
-      model: "TS-WH-2024",
-      color: "Black",
-      weight: "250g",
-      battery: "30 hours",
-      connectivity: "Bluetooth 5.0"
-    },
-    seo: {
-      title: "Wireless Headphones - Premium Audio Experience",
-      description: "Buy the best wireless headphones with noise cancellation. Premium sound quality and comfort.",
-      keywords: "wireless headphones, noise cancellation, bluetooth, audio"
-    }
+    featured: false,
+    tags: "",
   });
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [variants, setVariants] = useState([
+    {
+      color: "",
+      colorCode: "",
+      size: "",
+      price: "",
+      quantity: "",
+      sku: "",
+      images: [],
+      discount: 0,
+    },
+  ]);
 
-  const categories = [
-    "Electronics",
-    "Clothing",
-    "Accessories",
-    "Home & Garden",
-    "Sports",
-    "Books",
-    "Toys",
-    "Beauty",
-    "Health",
-    "Automotive"
-  ];
+  const categories = categoriesData?.data?.categories || categoriesData?.data || [];
+  const product = productData?.data;
+
+  // Load product data when available
+  useEffect(() => {
+    if (product) {
+      setFormData({
+        name: product.name || "",
+        description: product.description || "",
+        category: product.category?._id || product.category || "",
+        status: product.status || "active",
+        featured: product.featured || false,
+        tags: product.tags?.join(", ") || "",
+      });
+
+      if (product.variants && product.variants.length > 0) {
+        setVariants(
+          product.variants.map((v) => ({
+            color: v.color || "",
+            colorCode: v.colorCode || "",
+            size: v.size || "",
+            price: v.price?.toString() || "",
+            quantity: v.quantity?.toString() || "",
+            sku: v.sku || "",
+            images: v.images || [],
+            discount: v.discount || 0,
+          }))
+        );
+      }
+    }
+  }, [product]);
 
   const handleInputChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
+    const { name, value, type, checked } = e.target;
+    setFormData((prev) => ({
       ...prev,
-      [name]: value
+      [name]: type === "checkbox" ? checked : value,
     }));
   };
 
-  const handleSpecificationChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      specifications: {
-        ...prev.specifications,
-        [name]: value
+  const handleVariantChange = (index, field, value) => {
+    const newVariants = [...variants];
+    newVariants[index][field] = value;
+    setVariants(newVariants);
+  };
+
+  const addVariant = () => {
+    setVariants([
+      ...variants,
+      {
+        color: "",
+        colorCode: "",
+        size: "",
+        price: "",
+        quantity: "",
+        sku: "",
+        images: [],
+        discount: 0,
+      },
+    ]);
+  };
+
+  const removeVariant = (index) => {
+    if (variants.length > 1) {
+      // Delete images from Supabase before removing variant
+      const variantToRemove = variants[index];
+      if (variantToRemove.images && variantToRemove.images.length > 0) {
+        variantToRemove.images.forEach(async (imageUrl) => {
+          if (imageUrl && imageUrl.includes('supabase')) {
+            await deleteImage(imageUrl);
+          }
+        });
       }
-    }));
+      setVariants(variants.filter((_, i) => i !== index));
+    }
   };
 
-  const handleSeoChange = (e) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({
-      ...prev,
-      seo: {
-        ...prev.seo,
-        [name]: value
-      }
-    }));
-  };
-
-  const handleImageUpload = (e) => {
+  const handleImageUpload = async (index, e) => {
     const files = Array.from(e.target.files);
-    const newImages = files.map((file, index) => ({
-      id: Date.now() + index,
-      url: URL.createObjectURL(file),
-      isMain: false
-    }));
+    if (files.length === 0) return;
 
-    setFormData(prev => ({
-      ...prev,
-      images: [...prev.images, ...newImages]
-    }));
+    try {
+      // Upload images to Supabase
+      const uploadedUrls = await upload(files);
+      if (uploadedUrls.length > 0) {
+        handleVariantChange(index, "images", [...variants[index].images, ...uploadedUrls]);
+      }
+    } catch (error) {
+      console.error("Upload error:", error);
+    }
   };
 
-  const handleRemoveImage = (imageId) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.filter(img => img.id !== imageId)
-    }));
-  };
+  const handleRemoveVariantImage = async (variantIndex, imageIndex, imageUrl) => {
+    // Delete from Supabase if it's a Supabase URL
+    if (imageUrl && imageUrl.includes('supabase')) {
+      await deleteImage(imageUrl);
+    }
 
-  const handleSetMainImage = (imageId) => {
-    setFormData(prev => ({
-      ...prev,
-      images: prev.images.map(img => ({
-        ...img,
-        isMain: img.id === imageId
-      }))
-    }));
+    // Remove from local state
+    const newImages = variants[variantIndex].images.filter((_, i) => i !== imageIndex);
+    handleVariantChange(variantIndex, "images", newImages);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setIsLoading(true);
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Validate variants
+    for (const variant of variants) {
+      if (!variant.color || !variant.size || !variant.price || !variant.quantity || !variant.sku) {
+        return;
+      }
+    }
 
-    console.log("Updated product data:", formData);
-    setIsLoading(false);
+    try {
+      // Parse tags from comma-separated string
+      const tagsArray = formData.tags
+        ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
+        : [];
 
-    // Redirect to products list
-    window.location.href = "/admin/products/list";
+      const productData = {
+        name: formData.name,
+        description: formData.description,
+        category: formData.category,
+        status: formData.status,
+        featured: formData.featured,
+        tags: tagsArray,
+        variants: variants.map((v) => ({
+          color: v.color,
+          colorCode: v.colorCode || undefined,
+          size: v.size,
+          price: parseFloat(v.price),
+          quantity: parseInt(v.quantity),
+          sku: v.sku,
+          images: v.images || [],
+          discount: parseFloat(v.discount) || 0,
+        })),
+      };
+
+      await updateProduct({ id: productId, ...productData }).unwrap();
+      router.push("/admin/products/list");
+    } catch (err) {
+    }
   };
+
+  if (isLoadingProduct) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  if (productError || !product) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <p className="text-red-500 mb-4">Product not found</p>
+        <Link href="/admin/products/list">
+          <Button className="bg-primary text-white">Back to Products</Button>
+        </Link>
+      </div>
+    );
+  }
 
   return (
     <motion.div
@@ -184,393 +262,311 @@ export default function EditProductPage() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Form */}
-          <div className="lg:col-span-2 space-y-6">
-            {/* Basic Information */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.1 }}
-              className="bg-cardBackground p-6 rounded-lg shadow"
+        {/* Product Information */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-cardBackground p-6 rounded-lg shadow"
+        >
+          <h2 className="text-lg font-semibold mb-4">Product Information</h2>
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-cardForeground mb-2">
+                Product Name *
+              </label>
+              <Input
+                name="name"
+                value={formData.name}
+                onChange={handleInputChange}
+                placeholder="Enter product name"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-cardForeground mb-2">
+                Description *
+              </label>
+              <TextArea
+                name="description"
+                value={formData.description}
+                onChange={handleInputChange}
+                placeholder="Enter product description"
+                rows={4}
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-cardForeground mb-2">
+                Tags
+              </label>
+              <Input
+                name="tags"
+                value={formData.tags}
+                onChange={handleInputChange}
+                placeholder="Enter tags separated by commas (e.g., new, sale, popular)"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Separate multiple tags with commas
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-cardForeground mb-2">
+                  Category *
+                </label>
+                <select
+                  name="category"
+                  value={formData.category}
+                  onChange={handleInputChange}
+                  className="flex h-10 w-full rounded-md border border-borderColor bg-inputBackground px-3 py-2 text-sm text-inputForeground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ringColor focus-visible:ring-offset-2"
+                  required
+                >
+                  <option value="">Select category</option>
+                  {categories?.length > 0 && categories?.map((category) => (
+                    <option key={category?._id} value={category?._id}>
+                      {category?.name}
+                    </option>
+                  ))}
+                  {categories?.length === 0 && (
+                    <option value="">No categories found</option>
+                  )}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-cardForeground mb-2">
+                  Status
+                </label>
+                <select
+                  name="status"
+                  value={formData.status}
+                  onChange={handleInputChange}
+                  className="flex h-10 w-full rounded-md border border-borderColor bg-inputBackground px-3 py-2 text-sm text-inputForeground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ringColor focus-visible:ring-offset-2"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+
+              <div className="flex items-center pt-8">
+                <input
+                  type="checkbox"
+                  name="featured"
+                  checked={formData.featured}
+                  onChange={handleInputChange}
+                  className="mr-2 h-4 w-4"
+                />
+                <label className="text-sm font-medium text-cardForeground">
+                  Featured Product
+                </label>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Variants Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+          className="bg-cardBackground p-6 rounded-lg shadow"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold">Product Variants</h2>
+            <Button
+              type="button"
+              onClick={addVariant}
+              className="bg-blue-600 text-white hover:bg-blue-700 px-3 py-2 flex items-center gap-2"
             >
-              <h2 className="text-lg font-semibold mb-4">Basic Information</h2>
-              <div className="space-y-4">
+              <FaPlus /> Add Variant
+            </Button>
+          </div>
+
+          {variants.map((variant, index) => (
+            <div key={index} className="border rounded-lg p-4 mb-4 relative">
+              {variants.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeVariant(index)}
+                  className="absolute top-2 right-2 text-red-600 hover:text-red-800"
+                >
+                  <FaTrash />
+                </button>
+              )}
+
+              <h3 className="font-medium mb-3">Variant {index + 1}</h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-cardForeground mb-2">
-                    Product Name *
+                    Color *
                   </label>
                   <Input
-                    name="name"
-                    value={formData.name}
-                    onChange={handleInputChange}
-                    placeholder="Enter product name"
+                    value={variant.color}
+                    onChange={(e) => handleVariantChange(index, "color", e.target.value)}
+                    placeholder="e.g. Red, Blue"
                     required
                   />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-cardForeground mb-2">
-                    Description *
+                    Color Code (Hex)
                   </label>
-                  <TextArea
-                    name="description"
-                    value={formData.description}
-                    onChange={handleInputChange}
-                    placeholder="Enter product description"
-                    rows={4}
-                    required
+                  <Input
+                    type="color"
+                    value={variant.colorCode}
+                    onChange={(e) => handleVariantChange(index, "colorCode", e.target.value)}
+                    className="h-10"
                   />
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-cardForeground mb-2">
-                      Price (₨) *
-                    </label>
-                    <Input
-                      name="price"
-                      type="number"
-                      value={formData.price}
-                      onChange={handleInputChange}
-                      placeholder="0"
-                      required
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-cardForeground mb-2">
-                      SKU *
-                    </label>
-                    <Input
-                      name="sku"
-                      value={formData.sku}
-                      onChange={handleInputChange}
-                      placeholder="Product SKU"
-                      required
-                    />
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-cardForeground mb-2">
-                      Category *
-                    </label>
-                    <select
-                      name="category"
-                      value={formData.category}
-                      onChange={handleInputChange}
-                      className="flex h-10 w-full rounded-md border border-borderColor bg-inputBackground px-3 py-2 text-sm text-inputForeground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ringColor focus-visible:ring-offset-2"
-                      required
-                    >
-                      {categories.map(category => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-cardForeground mb-2">
-                      Stock Quantity *
-                    </label>
-                    <Input
-                      name="stock"
-                      type="number"
-                      value={formData.stock}
-                      onChange={handleInputChange}
-                      placeholder="0"
-                      required
-                    />
-                  </div>
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-cardForeground mb-2">
-                    Status
+                    Size *
                   </label>
-                  <select
-                    name="status"
-                    value={formData.status}
-                    onChange={handleInputChange}
-                    className="flex h-10 w-full rounded-md border border-borderColor bg-inputBackground px-3 py-2 text-sm text-inputForeground ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ringColor focus-visible:ring-offset-2"
-                  >
-                    <option value="active">Active</option>
-                    <option value="inactive">Inactive</option>
-                  </select>
+                  <Input
+                    value={variant.size}
+                    onChange={(e) => handleVariantChange(index, "size", e.target.value)}
+                    placeholder="e.g. S, M, L, XL"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-cardForeground mb-2">
+                    Price *
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    value={variant.price}
+                    onChange={(e) => handleVariantChange(index, "price", e.target.value)}
+                    placeholder="0.00"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-cardForeground mb-2">
+                    Quantity *
+                  </label>
+                  <Input
+                    type="number"
+                    value={variant.quantity}
+                    onChange={(e) => handleVariantChange(index, "quantity", e.target.value)}
+                    placeholder="0"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-cardForeground mb-2">
+                    SKU *
+                  </label>
+                  <Input
+                    value={variant.sku}
+                    onChange={(e) => handleVariantChange(index, "sku", e.target.value)}
+                    placeholder="Product SKU"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-cardForeground mb-2">
+                    Discount (%)
+                  </label>
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={variant.discount}
+                    onChange={(e) => handleVariantChange(index, "discount", e.target.value)}
+                    placeholder="0"
+                  />
                 </div>
               </div>
-            </motion.div>
 
-            {/* Product Images */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="bg-cardBackground p-6 rounded-lg shadow"
-            >
-              <h2 className="text-lg font-semibold mb-4">Product Images</h2>
-              <div className="space-y-4">
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center">
-                  <FaUpload className="text-4xl text-gray-400 mx-auto mb-4" />
-                  <p className="text-sm text-cardForeground/60 mb-4">
-                    Upload product images (PNG, JPG, GIF up to 10MB)
-                  </p>
+              {/* Images for this variant */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-cardForeground mb-2">
+                  Images for {variant.color || "this variant"}
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                   <input
                     type="file"
                     multiple
                     accept="image/*"
-                    onChange={handleImageUpload}
+                    onChange={(e) => handleImageUpload(index, e)}
                     className="hidden"
-                    id="image-upload"
+                    id={`image-upload-${index}`}
+                    disabled={isUploading}
                   />
                   <label
-                    htmlFor="image-upload"
-                    className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primaryHover cursor-pointer"
+                    htmlFor={`image-upload-${index}`}
+                    className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md text-white bg-primary hover:bg-primaryHover cursor-pointer ${isUploading ? 'opacity-50 cursor-not-allowed' : ''}`}
                   >
-                    Add Images
+                    {isUploading ? 'Uploading...' : 'Choose Images'}
                   </label>
-                </div>
 
-                {formData.images.length > 0 && (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    {formData.images.map((image) => (
-                      <div key={image.id} className="relative group">
-                        <img
-                          src={image.url}
-                          alt={`Product ${image.id}`}
-                          className="w-full h-24 object-cover rounded-lg"
-                        />
-                        {image.isMain && (
-                          <div className="absolute top-1 left-1 bg-green-500 text-white text-xs px-2 py-1 rounded">
-                            Main
-                          </div>
-                        )}
-                        <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-50 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
-                          <div className="flex space-x-2">
-                            <button
-                              type="button"
-                              onClick={() => handleSetMainImage(image.id)}
-                              className="bg-white text-gray-900 p-1 rounded hover:bg-gray-100 transition-colors"
-                              title="Set as main"
-                            >
-                              <FaBox className="w-3 h-3" />
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveImage(image.id)}
-                              className="bg-red-500 text-white p-1 rounded hover:bg-red-600 transition-colors"
-                              title="Remove"
-                            >
-                              <FaTrash className="w-3 h-3" />
-                            </button>
-                          </div>
+                  {variant.images.length > 0 && (
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+                      {variant.images.map((image, imgIndex) => (
+                        <div key={imgIndex} className="relative">
+                          <img
+                            src={image}
+                            alt={`Variant ${index + 1} Image ${imgIndex + 1}`}
+                            className="w-full h-24 object-cover rounded-lg"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveVariantImage(index, imgIndex, image)}
+                            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-red-600"
+                          >
+                            ×
+                          </button>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-            </motion.div>
-
-            {/* Product Specifications */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.3 }}
-              className="bg-cardBackground p-6 rounded-lg shadow"
-            >
-              <h2 className="text-lg font-semibold mb-4">Product Specifications</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-cardForeground mb-2">
-                    Brand
-                  </label>
-                  <Input
-                    name="brand"
-                    value={formData.specifications.brand}
-                    onChange={handleSpecificationChange}
-                    placeholder="Brand name"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-cardForeground mb-2">
-                    Model
-                  </label>
-                  <Input
-                    name="model"
-                    value={formData.specifications.model}
-                    onChange={handleSpecificationChange}
-                    placeholder="Model number"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-cardForeground mb-2">
-                    Color
-                  </label>
-                  <Input
-                    name="color"
-                    value={formData.specifications.color}
-                    onChange={handleSpecificationChange}
-                    placeholder="Product color"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-cardForeground mb-2">
-                    Weight
-                  </label>
-                  <Input
-                    name="weight"
-                    value={formData.specifications.weight}
-                    onChange={handleSpecificationChange}
-                    placeholder="Product weight"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-cardForeground mb-2">
-                    Battery Life
-                  </label>
-                  <Input
-                    name="battery"
-                    value={formData.specifications.battery}
-                    onChange={handleSpecificationChange}
-                    placeholder="Battery life"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-cardForeground mb-2">
-                    Connectivity
-                  </label>
-                  <Input
-                    name="connectivity"
-                    value={formData.specifications.connectivity}
-                    onChange={handleSpecificationChange}
-                    placeholder="Connectivity type"
-                  />
-                </div>
-              </div>
-            </motion.div>
-
-            {/* SEO Settings */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4 }}
-              className="bg-cardBackground p-6 rounded-lg shadow"
-            >
-              <h2 className="text-lg font-semibold mb-4">SEO Settings</h2>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-cardForeground mb-2">
-                    SEO Title
-                  </label>
-                  <Input
-                    name="title"
-                    value={formData.seo.title}
-                    onChange={handleSeoChange}
-                    placeholder="SEO optimized title"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-cardForeground mb-2">
-                    SEO Description
-                  </label>
-                  <TextArea
-                    name="description"
-                    value={formData.seo.description}
-                    onChange={handleSeoChange}
-                    placeholder="SEO meta description"
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-cardForeground mb-2">
-                    Keywords
-                  </label>
-                  <Input
-                    name="keywords"
-                    value={formData.seo.keywords}
-                    onChange={handleSeoChange}
-                    placeholder="Comma separated keywords"
-                  />
-                </div>
-              </div>
-            </motion.div>
-          </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {/* Save Actions */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.5 }}
-              className="bg-cardBackground p-6 rounded-lg shadow"
-            >
-              <h2 className="text-lg font-semibold mb-4">Actions</h2>
-              <div className="space-y-3">
-                <Button
-                  type="submit"
-                  disabled={isLoading}
-                  className="w-full bg-primary text-white hover:bg-primaryHover flex items-center justify-center gap-2"
-                >
-                  {isLoading ? (
-                    <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
-                  ) : (
-                    <FaSave />
-                  )}
-                  {isLoading ? "Updating..." : "Update Product"}
-                </Button>
-                <Link href="/admin/products/list">
-                  <Button
-                    type="button"
-                    className="w-full bg-gray-500 text-white hover:bg-gray-600"
-                  >
-                    Cancel
-                  </Button>
-                </Link>
-              </div>
-            </motion.div>
-
-            {/* Product Preview */}
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-              className="bg-cardBackground p-6 rounded-lg shadow"
-            >
-              <h2 className="text-lg font-semibold mb-4">Preview</h2>
-              <div className="border rounded-lg p-4">
-                <div className="w-full h-32 bg-gray-100 rounded-lg mb-3 flex items-center justify-center">
-                  {formData.images.length > 0 ? (
-                    <img
-                      src={formData.images.find(img => img.isMain)?.url || formData.images[0]?.url}
-                      alt="Product preview"
-                      className="w-full h-full object-cover rounded-lg"
-                    />
-                  ) : (
-                    <FaBox className="text-4xl text-gray-400" />
+                      ))}
+                    </div>
                   )}
                 </div>
-                <h3 className="font-medium text-sm">
-                  {formData.name || "Product Name"}
-                </h3>
-                <p className="text-xs text-cardForeground/60 mt-1">
-                  {formData.category || "Category"}
-                </p>
-                <p className="font-bold text-lg mt-2">
-                  ₨{formData.price ? Number(formData.price).toLocaleString() : "0"}
-                </p>
-                <p className="text-xs text-cardForeground/60 mt-1">
-                  Stock: {formData.stock || "0"} units
-                </p>
-                <p className="text-xs text-cardForeground/60 mt-1">
-                  SKU: {formData.sku || "N/A"}
-                </p>
               </div>
-            </motion.div>
-          </div>
-        </div>
+            </div>
+          ))}
+        </motion.div>
+
+        {/* Submit Actions */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.3 }}
+          className="flex gap-4"
+        >
+          <Button
+            type="submit"
+            disabled={isUpdating || isLoadingProduct}
+            className="bg-primary text-white hover:bg-primaryHover px-6 py-3 flex items-center gap-2"
+          >
+            {isUpdating ? (
+              <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+            ) : (
+              <FaSave />
+            )}
+            {isUpdating ? "Updating..." : "Update Product"}
+          </Button>
+          <Link href="/admin/products/list">
+            <Button
+              type="button"
+              className="bg-gray-500 text-white hover:bg-gray-600 px-6 py-3"
+            >
+              Cancel
+            </Button>
+          </Link>
+        </motion.div>
       </form>
     </motion.div>
   );

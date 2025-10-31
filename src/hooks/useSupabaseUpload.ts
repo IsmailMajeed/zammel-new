@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
-import toast from 'react-hot-toast';
+import { toast } from 'sonner';
 
 export const supabase: SupabaseClient = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL as string,
@@ -51,5 +51,36 @@ export function useSupabaseUpload() {
     return urls.filter((url): url is string => Boolean(url))
   }
 
-  return { upload, loading }
+  const deleteImage = async (imageUrl: string): Promise<boolean> => {
+    if (!imageUrl) return true
+
+    try {
+      // Extract path from Supabase URL
+      // URL format: https://[project].supabase.co/storage/v1/object/public/images/public/filename
+      const urlParts = imageUrl.split('/storage/v1/object/public/images/')
+      if (urlParts.length !== 2) {
+        console.error('Invalid Supabase image URL format')
+        return false
+      }
+
+      const filePath = urlParts[1]
+
+      const { error } = await supabase.storage
+        .from('images')
+        .remove([filePath])
+
+      if (error) {
+        toast.error(error.message)
+        console.error('Error deleting image:', error)
+        return false
+      }
+
+      return true
+    } catch (error) {
+      console.error('Error deleting image:', error)
+      return false
+    }
+  }
+
+  return { upload, deleteImage, loading }
 }

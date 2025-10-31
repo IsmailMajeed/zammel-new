@@ -8,10 +8,7 @@ import {
   FaBox,
   FaShoppingCart,
   FaUsers,
-  FaUserEdit,
-  FaChartLine,
-  FaCog,
-  FaTags
+  FaUserEdit
 } from "react-icons/fa";
 import { usePathname } from "next/navigation";
 
@@ -23,9 +20,8 @@ const accordionMenus = [
     icon: <FaBox />,
     items: [
       { href: "/admin/products/list", label: "All Products" },
-      { href: "/admin/products/add", label: "Add Product" },
-      { href: "/admin/products/categories", label: "Categories" },
-      { href: "/admin/products/inventory", label: "Inventory" }
+      // { href: "/admin/products/add", label: "Add Product" },
+      { href: "/admin/products/categories", label: "Categories" }
     ]
   },
   {
@@ -33,10 +29,7 @@ const accordionMenus = [
     id: "orders",
     icon: <FaShoppingCart />,
     items: [
-      { href: "/admin/orders/list", label: "All Orders" },
-      { href: "/admin/orders/pending", label: "Pending Orders" },
-      { href: "/admin/orders/shipped", label: "Shipped Orders" },
-      { href: "/admin/orders/returns", label: "Returns" }
+      { href: "/admin/orders/list", label: "All Orders" }
     ]
   },
   {
@@ -44,41 +37,7 @@ const accordionMenus = [
     id: "customers",
     icon: <FaUsers />,
     items: [
-      { href: "/admin/customers/list", label: "All Customers" },
-      { href: "/admin/customers/analytics", label: "Customer Analytics" },
-      { href: "/admin/customers/segments", label: "Customer Segments" }
-    ]
-  },
-  {
-    title: "Analytics",
-    id: "analytics",
-    icon: <FaChartLine />,
-    items: [
-      { href: "/admin/analytics/sales", label: "Sales Analytics" },
-      { href: "/admin/analytics/products", label: "Product Analytics" },
-      { href: "/admin/analytics/customers", label: "Customer Analytics" },
-      { href: "/admin/analytics/reports", label: "Reports" }
-    ]
-  },
-  {
-    title: "Marketing",
-    id: "marketing",
-    icon: <FaTags />,
-    items: [
-      { href: "/admin/marketing/coupons", label: "Coupons" },
-      { href: "/admin/marketing/promotions", label: "Promotions" },
-      { href: "/admin/marketing/email", label: "Email Campaigns" }
-    ]
-  },
-  {
-    title: "Store Settings",
-    id: "settings",
-    icon: <FaCog />,
-    items: [
-      { href: "/admin/settings/general", label: "General Settings" },
-      { href: "/admin/settings/shipping", label: "Shipping Settings" },
-      { href: "/admin/settings/payment", label: "Payment Settings" },
-      { href: "/admin/settings/taxes", label: "Tax Settings" }
+      { href: "/admin/customers/list", label: "All Customers" }
     ]
   }
 ];

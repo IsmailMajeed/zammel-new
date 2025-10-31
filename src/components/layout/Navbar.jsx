@@ -30,11 +30,6 @@ const navigations = [
     icon: <FaBox className="text-gray-600 dark:text-gray-300" />,
     subItems: [
       {
-        name: "All Products",
-        href: "/admin/products/list",
-        icon: <FaList className="text-gray-600 dark:text-gray-300" />
-      },
-      {
         name: "Add Product",
         href: "/admin/products/add",
         icon: <FaUserPlus className="text-gray-600 dark:text-gray-300" />
@@ -43,11 +38,6 @@ const navigations = [
         name: "Categories",
         href: "/admin/products/categories",
         icon: <FaTags className="text-gray-600 dark:text-gray-300" />
-      },
-      {
-        name: "Inventory",
-        href: "/admin/products/inventory",
-        icon: <FaStore className="text-gray-600 dark:text-gray-300" />
       }
     ]
   },
@@ -55,104 +45,16 @@ const navigations = [
     name: "Orders",
     href: "/admin/orders/list",
     icon: <FaShoppingCart className="text-gray-600 dark:text-gray-300" />,
-    subItems: [
-      {
-        name: "All Orders",
-        href: "/admin/orders/list",
-        icon: <FaList className="text-gray-600 dark:text-gray-300" />
-      },
-      {
-        name: "Pending Orders",
-        href: "/admin/orders/pending",
-        icon: <MdOutlinePending className="text-gray-600 dark:text-gray-300" />
-      },
-      {
-        name: "Shipped Orders",
-        href: "/admin/orders/shipped",
-        icon: <FaFileInvoice className="text-gray-600 dark:text-gray-300" />
-      },
-      {
-        name: "Returns",
-        href: "/admin/orders/returns",
-        icon: <FaList className="text-gray-600 dark:text-gray-300" />
-      }
-    ]
   },
   {
     name: "Customers",
     href: "/admin/customers/list",
-    icon: <FaUsers className="text-gray-600 dark:text-gray-300" />,
-    subItems: [
-      {
-        name: "All Customers",
-        href: "/admin/customers/list",
-        icon: <FaList className="text-gray-600 dark:text-gray-300" />
-      },
-      {
-        name: "Customer Analytics",
-        href: "/admin/customers/analytics",
-        icon: <FaChartLine className="text-gray-600 dark:text-gray-300" />
-      },
-      {
-        name: "Customer Segments",
-        href: "/admin/customers/segments",
-        icon: <FaUserAlt className="text-gray-600 dark:text-gray-300" />
-      }
-    ]
+    icon: <FaUsers className="text-gray-600 dark:text-gray-300" />
   },
   {
-    name: "Analytics",
-    href: "/admin/analytics/sales",
-    icon: <FaChartLine className="text-gray-600 dark:text-gray-300" />,
-    subItems: [
-      {
-        name: "Sales Analytics",
-        href: "/admin/analytics/sales",
-        icon: <FaChartLine className="text-gray-600 dark:text-gray-300" />
-      },
-      {
-        name: "Product Analytics",
-        href: "/admin/analytics/products",
-        icon: <FaBox className="text-gray-600 dark:text-gray-300" />
-      },
-      {
-        name: "Customer Analytics",
-        href: "/admin/analytics/customers",
-        icon: <FaUser className="text-gray-600 dark:text-gray-300" />
-      },
-      {
-        name: "Reports",
-        href: "/admin/analytics/reports",
-        icon: <FaFileInvoice className="text-gray-600 dark:text-gray-300" />
-      }
-    ]
-  },
-  {
-    name: "Marketing",
-    href: "/admin/marketing/coupons",
-    icon: <FaTags className="text-gray-600 dark:text-gray-300" />,
-    subItems: [
-      {
-        name: "Coupons",
-        href: "/admin/marketing/coupons",
-        icon: <FaTags className="text-gray-600 dark:text-gray-300" />
-      },
-      {
-        name: "Promotions",
-        href: "/admin/marketing/promotions",
-        icon: <FaList className="text-gray-600 dark:text-gray-300" />
-      },
-      {
-        name: "Email Campaigns",
-        href: "/admin/marketing/email",
-        icon: <FaUserAlt className="text-gray-600 dark:text-gray-300" />
-      }
-    ]
-  },
-  {
-    name: "Settings",
-    href: "/admin/settings/general",
-    icon: <FaCog className="text-gray-600 dark:text-gray-300" />
+    name: "Profile",
+    href: "/admin/profile",
+    icon: <FaUserCircle className="text-gray-600 dark:text-gray-300" />
   }
 ];
 
@@ -321,13 +223,17 @@ export default function Navbar() {
     document.querySelector(".sidebar")?.classList.toggle("max-md:-left-full")
   }, [])
 
+  useEffect(() => {
+    document.querySelector(".sidebar")?.classList.add("max-md:-left-full")
+  }, [pathname]);
+
   return (
     <motion.nav
       initial={{ y: -100 }}
       animate={{ y: 0 }}
-      className="bg-primary text-primaryForeground p-4 sticky top-0 z-50 shadow-md"
+      className="bg-primary text-primaryForeground p-4 fixed top-0 z-50 shadow-md w-full"
     >
-      <div className="flex items-center justify-between">
+      <div className="grid grid-cols-2 md:grid-cols-3">
         <motion.div
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
@@ -406,13 +312,20 @@ export default function Navbar() {
               >
                 {searchResults.map((result, index) => (
                   <motion.div
-                    key={result.name}
+                    key={`${result.name}-${result.href}-${index}`}
                     id={`search-result-${index}`}
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <Link href={result.href}>
+                    <Link
+                      href={result.href || '#'}
+                      onClick={() => {
+                        setSearchQuery('');
+                        setSearchResults([]);
+                        setSelectedIndex(-1);
+                      }}
+                    >
                       <div
                         className={`p-3 cursor-pointer transition-colors duration-150 flex items-center gap-3
                       ${selectedIndex === index ? 'bg-mutedBackground bg-opacity-20' : ''}
@@ -433,7 +346,7 @@ export default function Navbar() {
         <motion.div
           initial={{ x: 20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
-          className="flex items-center space-x-4"
+          className="flex items-center justify-end space-x-4"
         >
           {/* <motion.button
             whileHover={{ scale: 1.1 }}
