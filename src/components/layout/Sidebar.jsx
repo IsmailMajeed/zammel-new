@@ -8,7 +8,8 @@ import {
   FaBox,
   FaShoppingCart,
   FaUsers,
-  FaUserEdit
+  FaUserEdit,
+  FaCog
 } from "react-icons/fa";
 import { usePathname } from "next/navigation";
 
@@ -109,12 +110,22 @@ export default function Sidebar() {
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.4 }}
-        className="px-4"
+        className="px-4 space-y-1"
       >
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Link
+            href="/admin/settings"
+            className={`py-2 px-2 rounded transition-colors duration-200 flex items-center gap-x-1 ${pathname === "/admin/settings" ? "bg-blue-50 text-primary" : ""
+              }`}
+          >
+            <FaCog />
+            Settings
+          </Link>
+        </motion.div>
+        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <Link
             href="/admin/profile"
-            className={`py-2 px-2 rounded transition-colors duration-200 flex items-center gap-x-1 ${pathname === "/profile" ? "bg-blue-50 text-primary" : ""
+            className={`py-2 px-2 rounded transition-colors duration-200 flex items-center gap-x-1 ${pathname === "/admin/profile" ? "bg-blue-50 text-primary" : ""
               }`}
           >
             <FaUserEdit />

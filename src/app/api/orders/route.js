@@ -146,13 +146,46 @@ export async function POST(request) {
       (sum, item) => sum + (item.price * item.quantity),
       0
     );
-    const recalculatedTax = recalculatedSubtotal * 0.08;
-    const recalculatedTotal = recalculatedSubtotal + shipping + recalculatedTax - (discount || 0);
+
+    // Calculate tax based on provided taxDetails (already calculated on frontend)
+    // Use provided tax value if available, otherwise calculate from taxDetails
+    const providedTaxDetails = body.taxDetails;
+    let recalculatedTax = body.tax || 0;
+
+    // If taxDetails provided, we can recalculate for verification
+    if (providedTaxDetails && providedTaxDetails.enabled) {
+      if (providedTaxDetails.type === 'percentage') {
+        recalculatedTax = (recalculatedSubtotal * providedTaxDetails.value) / 100;
+      } else {
+        recalculatedTax = providedTaxDetails.value || 0;
+      }
+    }
+
+    // Use provided shipping value (already calculated on frontend)
+    const finalShipping = shipping || 0;
+
+    const recalculatedTotal = recalculatedSubtotal + finalShipping + recalculatedTax - (discount || 0);
 
     // Generate unique order number
     const timestamp = Date.now();
     const random = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
     const orderNumber = `ORD-${timestamp}-${random}`;
+
+    // Get tax and shipping details from request body
+    const taxDetails = body.taxDetails || {
+      enabled: false,
+      type: 'percentage',
+      value: 0,
+      description: 'Sales Tax'
+    };
+
+    const shippingDetails = body.shippingDetails || {
+      enabled: false,
+      type: 'fixed',
+      value: 0,
+      freeShippingAbove: 0,
+      description: 'Standard Shipping'
+    };
 
     // Create order
     const order = await Order.create({
@@ -162,8 +195,10 @@ export async function POST(request) {
       shippingAddress,
       paymentMethod,
       subtotal: recalculatedSubtotal,
-      shipping,
+      shipping: finalShipping,
       tax: recalculatedTax,
+      taxDetails: taxDetails,
+      shippingDetails: shippingDetails,
       discount: discount || 0,
       total: recalculatedTotal,
       paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
@@ -209,6 +244,8 @@ export async function GET(request) {
     const userId = searchParams.get('userId');
     const orderStatus = searchParams.get('orderStatus');
     const paymentStatus = searchParams.get('paymentStatus');
+    const startDate = searchParams.get('startDate');
+    const endDate = searchParams.get('endDate');
     const page = parseInt(searchParams.get('page')) || 1;
     const limit = parseInt(searchParams.get('limit')) || 10;
     const skip = (page - 1) * limit;
@@ -225,6 +262,20 @@ export async function GET(request) {
 
     if (paymentStatus) {
       query.paymentStatus = paymentStatus;
+    }
+
+    // Date range filtering
+    if (startDate || endDate) {
+      query.createdAt = {};
+      if (startDate) {
+        // Start of the start date
+        query.createdAt.$gte = new Date(startDate + 'T00:00:00.000Z');
+      }
+      if (endDate) {
+        // End of the end date (23:59:59.999)
+        const endDateTime = new Date(endDate + 'T23:59:59.999Z');
+        query.createdAt.$lte = endDateTime;
+      }
     }
 
     const orders = await Order.find(query)

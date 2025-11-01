@@ -130,6 +130,50 @@ const OrderSchema = new mongoose.Schema(
       min: 0,
       default: 0
     },
+    // Store tax calculation details
+    taxDetails: {
+      enabled: {
+        type: Boolean,
+        default: true
+      },
+      type: {
+        type: String,
+        enum: ['percentage', 'fixed'],
+        default: 'percentage'
+      },
+      value: {
+        type: Number,
+        default: 0
+      },
+      description: {
+        type: String,
+        default: 'Sales Tax'
+      }
+    },
+    // Store shipping calculation details
+    shippingDetails: {
+      enabled: {
+        type: Boolean,
+        default: true
+      },
+      type: {
+        type: String,
+        enum: ['fixed', 'percentage', 'free_above'],
+        default: 'fixed'
+      },
+      value: {
+        type: Number,
+        default: 0
+      },
+      freeShippingAbove: {
+        type: Number,
+        default: 0
+      },
+      description: {
+        type: String,
+        default: 'Standard Shipping'
+      }
+    },
     discount: {
       type: Number,
       min: 0,

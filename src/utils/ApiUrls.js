@@ -29,3 +29,8 @@ export const ORDER_ENDPOINTS = {
   CREATE: `orders`,
   UPDATE: (id) => `orders/${id}`,
 };
+
+export const SETTINGS_ENDPOINTS = {
+  GET: `settings`,
+  UPDATE: `settings`,
+};

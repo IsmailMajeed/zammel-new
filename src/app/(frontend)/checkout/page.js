@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearCart, updateQuantity, removeFromCart } from '@/redux/slices/Cart';
 import { useCreateOrderMutation } from '@/redux/api/Orders';
+import { useGetSettingsQuery } from '@/redux/api/Settings';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
 import { CreditCard, MapPin, Phone, Mail, ArrowLeft, Lock, AlertTriangle } from 'lucide-react';
@@ -35,6 +36,10 @@ export default function CheckoutPage() {
   const { items, total, itemCount } = useSelector(state => state.cart);
   const { user } = useSelector(state => state.user);
   const [createOrder, { isLoading: isCreatingOrder }] = useCreateOrderMutation();
+
+  // Fetch settings for tax and shipping calculation
+  const { data: settingsData, isLoading: isLoadingSettings } = useGetSettingsQuery();
+  const settings = settingsData?.data?.settings;
 
   // Validate stock on component mount
   useEffect(() => {
@@ -141,8 +146,45 @@ export default function CheckoutPage() {
   };
 
   const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const shipping = subtotal > 500000 ? 0 : 500; // Free shipping over 5000 PKR (500000 paisa)
-  const tax = subtotal * 0.08;
+
+  // Calculate tax based on settings
+  const calculateTax = () => {
+    if (!settings?.tax?.enabled) return 0;
+
+    const taxSettings = settings.tax;
+    if (taxSettings.type === 'percentage') {
+      return (subtotal * taxSettings.value) / 100;
+    } else {
+      return taxSettings.value;
+    }
+  };
+
+  // Calculate shipping based on settings
+  const calculateShipping = () => {
+    if (!settings?.shipping?.enabled) return 0;
+
+    const shippingSettings = settings.shipping;
+
+    // Free shipping above threshold
+    if (shippingSettings.type === 'free_above' && shippingSettings.freeShippingAbove) {
+      const threshold = shippingSettings.freeShippingAbove;
+      if (subtotal >= threshold) {
+        return 0;
+      }
+      return shippingSettings.value || 0;
+    }
+
+    // Percentage based
+    if (shippingSettings.type === 'percentage') {
+      return (subtotal * shippingSettings.value) / 100;
+    }
+
+    // Fixed amount
+    return shippingSettings.value || 0;
+  };
+
+  const tax = calculateTax();
+  const shipping = calculateShipping();
   const finalTotal = subtotal + shipping + tax;
 
   const handleInputChange = (e) => {
@@ -204,6 +246,33 @@ export default function CheckoutPage() {
         postalCode: formData.postalCode
       };
 
+      // Store tax and shipping details from settings
+      const taxDetails = settings?.tax ? {
+        enabled: settings.tax.enabled,
+        type: settings.tax.type,
+        value: settings.tax.value,
+        description: settings.tax.description || 'Sales Tax'
+      } : {
+        enabled: false,
+        type: 'percentage',
+        value: 0,
+        description: 'Sales Tax'
+      };
+
+      const shippingDetails = settings?.shipping ? {
+        enabled: settings.shipping.enabled,
+        type: settings.shipping.type,
+        value: settings.shipping.value || 0,
+        freeShippingAbove: settings.shipping.freeShippingAbove || 0,
+        description: settings.shipping.description || 'Standard Shipping'
+      } : {
+        enabled: false,
+        type: 'fixed',
+        value: 0,
+        freeShippingAbove: 0,
+        description: 'Standard Shipping'
+      };
+
       // Create order
       const result = await createOrder({
         items: orderItems,
@@ -212,6 +281,8 @@ export default function CheckoutPage() {
         subtotal: subtotal / 100, // Convert from paisa to PKR
         shipping: shipping / 100, // Convert from paisa to PKR
         tax: tax / 100, // Convert from paisa to PKR
+        taxDetails: taxDetails,
+        shippingDetails: shippingDetails,
         discount: 0,
         total: finalTotal / 100, // Convert from paisa to PKR
         userId: user?._id || null
@@ -285,6 +356,20 @@ export default function CheckoutPage() {
       setIsProcessing(false);
     }
   };
+
+  // Show loading while settings are being fetched
+  if (isLoadingSettings) {
+    return (
+      <main className="min-h-screen bg-gray-50 py-12">
+        <div className="container max-w-4xl">
+          <div className="text-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading checkout...</p>
+          </div>
+        </div>
+      </main>
+    );
+  }
 
   if (items.length === 0) {
     return (

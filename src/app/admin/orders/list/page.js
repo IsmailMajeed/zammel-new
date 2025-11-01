@@ -1,9 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FaShoppingCart, FaEye, FaEdit, FaFilter, FaDownload, FaSearch } from "react-icons/fa";
+import { FaShoppingCart, FaEye, FaEdit, FaFilter, FaDownload, FaSearch, FaSpinner } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useGetOrdersQuery, useUpdateOrderMutation } from "@/redux/api/Orders";
+import useDebounce from "@/hooks/useDebounce";
+import Swal from "sweetalert2";
+import { useRouter } from "next/navigation";
+import Pagination from "@/components/Pagination";
 
 const Input = ({ className, ...props }) => {
   return (
@@ -77,113 +82,61 @@ const TableCell = ({ children, className, ...props }) => {
 };
 
 export default function OrdersListPage() {
-  const [orders, setOrders] = useState([
-    {
-      id: "ORD-001",
-      customer: {
-        name: "Ahmed Khan",
-        email: "ahmed@example.com",
-        phone: "+92 300 1234567"
-      },
-      items: [
-        { name: "Wireless Headphones", quantity: 1, price: 29999 },
-        { name: "Smart Watch", quantity: 2, price: 19999 }
-      ],
-      total: 69997,
-      status: "pending",
-      paymentStatus: "pending",
-      shippingAddress: "123 Main St, Karachi, Pakistan",
-      createdAt: "2024-01-15T10:30:00Z",
-      updatedAt: "2024-01-15T10:30:00Z"
-    },
-    {
-      id: "ORD-002",
-      customer: {
-        name: "Sara Ali",
-        email: "sara@example.com",
-        phone: "+92 301 2345678"
-      },
-      items: [
-        { name: "Laptop Stand", quantity: 1, price: 4999 }
-      ],
-      total: 4999,
-      status: "completed",
-      paymentStatus: "paid",
-      shippingAddress: "456 Park Ave, Lahore, Pakistan",
-      createdAt: "2024-01-14T14:20:00Z",
-      updatedAt: "2024-01-16T09:15:00Z"
-    },
-    {
-      id: "ORD-003",
-      customer: {
-        name: "Mohammad Usman",
-        email: "usman@example.com",
-        phone: "+92 302 3456789"
-      },
-      items: [
-        { name: "Mechanical Keyboard", quantity: 1, price: 14999 },
-        { name: "Gaming Mouse", quantity: 1, price: 7999 }
-      ],
-      total: 22998,
-      status: "shipped",
-      paymentStatus: "paid",
-      shippingAddress: "789 Garden Rd, Islamabad, Pakistan",
-      createdAt: "2024-01-13T16:45:00Z",
-      updatedAt: "2024-01-15T11:20:00Z"
-    },
-    {
-      id: "ORD-004",
-      customer: {
-        name: "Fatima Sheikh",
-        email: "fatima@example.com",
-        phone: "+92 303 4567890"
-      },
-      items: [
-        { name: "Wireless Headphones", quantity: 2, price: 29999 }
-      ],
-      total: 59998,
-      status: "processing",
-      paymentStatus: "paid",
-      shippingAddress: "321 Oak St, Faisalabad, Pakistan",
-      createdAt: "2024-01-12T12:10:00Z",
-      updatedAt: "2024-01-14T08:30:00Z"
-    },
-    {
-      id: "ORD-005",
-      customer: {
-        name: "Ali Hassan",
-        email: "ali@example.com",
-        phone: "+92 304 5678901"
-      },
-      items: [
-        { name: "Smart Watch", quantity: 1, price: 19999 },
-        { name: "Laptop Stand", quantity: 1, price: 4999 },
-        { name: "Gaming Mouse", quantity: 1, price: 7999 }
-      ],
-      total: 32997,
-      status: "cancelled",
-      paymentStatus: "refunded",
-      shippingAddress: "654 Pine St, Rawalpindi, Pakistan",
-      createdAt: "2024-01-11T09:25:00Z",
-      updatedAt: "2024-01-13T14:45:00Z"
-    }
-  ]);
-
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [paymentFilter, setPaymentFilter] = useState("all");
-  const [isLoading, setIsLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const limit = 10;
 
+  const debouncedSearch = useDebounce(search, 500);
+
+  // Build query params for API
+  const queryParams = {
+    page,
+    limit,
+    ...(statusFilter !== "all" && { orderStatus: statusFilter }),
+    ...(paymentFilter !== "all" && { paymentStatus: paymentFilter }),
+  };
+
+  const {
+    data: ordersData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useGetOrdersQuery(queryParams);
+
+  const [updateOrder, { isLoading: isUpdatingOrder }] = useUpdateOrderMutation();
+  const [isExporting, setIsExporting] = useState(false);
+
+  const orders = ordersData?.data?.orders || [];
+  const pagination = ordersData?.data?.pagination || {
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: limit,
+  };
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, paymentFilter, debouncedSearch]);
+
+  // Filter orders by search (client-side for orderNumber and customer info)
   const filteredOrders = orders.filter((order) => {
-    const matchesSearch =
-      order.id.toLowerCase().includes(search.toLowerCase()) ||
-      order.customer.name.toLowerCase().includes(search.toLowerCase()) ||
-      order.customer.email.toLowerCase().includes(search.toLowerCase());
+    if (!debouncedSearch) return true;
 
-    const matchesStatus = statusFilter === "all" || order.status === statusFilter;
-    const matchesPayment = paymentFilter === "all" || order.paymentStatus === paymentFilter;
+    const searchLower = debouncedSearch.toLowerCase();
+    const orderNumber = order.orderNumber?.toLowerCase() || "";
+    const customerName = order.user?.name?.toLowerCase() || "";
+    const customerEmail = order.user?.email?.toLowerCase() || "";
 
-    return matchesSearch && matchesStatus && matchesPayment;
+    return (
+      orderNumber.includes(searchLower) ||
+      customerName.includes(searchLower) ||
+      customerEmail.includes(searchLower)
+    );
   });
 
   const getStatusBadge = (status) => {
@@ -219,12 +172,98 @@ export default function OrdersListPage() {
     );
   };
 
-  const handleStatusUpdate = (orderId, newStatus) => {
-    setOrders(orders.map(order =>
-      order.id === orderId
-        ? { ...order, status: newStatus, updatedAt: new Date().toISOString() }
-        : order
-    ));
+  const handleStatusUpdate = async (orderId, newStatus) => {
+    try {
+      const result = await Swal.fire({
+        title: "Update Order Status?",
+        text: `Are you sure you want to change the order status to "${newStatus}"?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes, update it!",
+        cancelButtonText: "Cancel",
+      });
+
+      if (result.isConfirmed) {
+        Swal.fire({
+          title: "Updating...",
+          text: "Please wait",
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
+        });
+
+        await updateOrder({
+          id: orderId,
+          orderStatus: newStatus,
+        }).unwrap();
+
+        Swal.fire({
+          title: "Updated!",
+          text: "Order status has been updated successfully.",
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+
+        refetch();
+      }
+    } catch (error) {
+      Swal.fire({
+        title: "Error!",
+        text: error?.data?.message || "Failed to update order status",
+        icon: "error",
+      });
+    }
+  };
+
+  const handlePaymentStatusUpdate = async (orderId, newPaymentStatus) => {
+    try {
+      const result = await Swal.fire({
+        title: "Update Payment Status?",
+        text: `Are you sure you want to change the payment status to "${newPaymentStatus}"?`,
+        icon: "question",
+        showCancelButton: true,
+        confirmButtonColor: "#3085d6",
+        cancelButtonColor: "#d33",
+        confirmButtonText: "Yes, update it!",
+        cancelButtonText: "Cancel",
+      });
+
+      if (result.isConfirmed) {
+        Swal.fire({
+          title: "Updating...",
+          text: "Please wait",
+          allowOutsideClick: false,
+          didOpen: () => {
+            Swal.showLoading();
+          },
+        });
+
+        await updateOrder({
+          id: orderId,
+          paymentStatus: newPaymentStatus,
+        }).unwrap();
+
+        Swal.fire({
+          title: "Updated!",
+          text: "Payment status has been updated successfully.",
+          icon: "success",
+          timer: 2000,
+          showConfirmButton: false,
+        });
+
+        refetch();
+      }
+    } catch (error) {
+      Swal.fire({
+        title: "Error!",
+        text: error?.data?.message || "Failed to update payment status",
+        icon: "error",
+      });
+    }
   };
 
   const formatDate = (dateString) => {
@@ -235,6 +274,223 @@ export default function OrdersListPage() {
       hour: '2-digit',
       minute: '2-digit'
     });
+  };
+
+  const convertToCSV = (orders) => {
+    if (!orders || orders.length === 0) {
+      return '';
+    }
+
+    // CSV Headers
+    const headers = [
+      'Order Number',
+      'Order Date',
+      'Customer Name',
+      'Customer Email',
+      'Order Status',
+      'Payment Status',
+      'Payment Method',
+      'Items Count',
+      'Subtotal (PKR)',
+      'Shipping (PKR)',
+      'Tax (PKR)',
+      'Discount (PKR)',
+      'Total (PKR)',
+      'Shipping Full Name',
+      'Shipping Email',
+      'Shipping Phone',
+      'Shipping Address',
+      'City',
+      'Postal Code'
+    ];
+
+    // CSV Rows
+    const rows = orders.map(order => {
+      const shippingAddress = order.shippingAddress || {};
+      const items = order.items || [];
+      const itemsList = items.map(item =>
+        `${item.productName || 'N/A'} (${item.quantity || 0}x)`
+      ).join('; ');
+
+      const fullName = shippingAddress.firstName && shippingAddress.lastName
+        ? `${shippingAddress.firstName} ${shippingAddress.lastName}`
+        : (shippingAddress.firstName || shippingAddress.lastName || 'N/A');
+
+      return [
+        order.orderNumber || order._id || 'N/A',
+        order.createdAt ? new Date(order.createdAt).toLocaleString('en-PK') : 'N/A',
+        order.user?.name || 'Guest User',
+        order.user?.email || 'No email',
+        order.orderStatus || 'N/A',
+        order.paymentStatus || 'N/A',
+        order.paymentMethod || 'N/A',
+        items.length,
+        (order.subtotal || 0).toLocaleString('en-PK'),
+        (order.shipping || 0).toLocaleString('en-PK'),
+        (order.tax || 0).toLocaleString('en-PK'),
+        (order.discount || 0).toLocaleString('en-PK'),
+        (order.total || 0).toLocaleString('en-PK'),
+        fullName,
+        shippingAddress.email || 'N/A',
+        shippingAddress.phone || 'N/A',
+        shippingAddress.address || 'N/A',
+        shippingAddress.city || 'N/A',
+        shippingAddress.postalCode || 'N/A'
+      ];
+    });
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => {
+        // Escape commas and quotes in cell values
+        const cellValue = String(cell).replace(/"/g, '""');
+        return `"${cellValue}"`;
+      }).join(','))
+    ].join('\n');
+
+    return csvContent;
+  };
+
+  const downloadCSV = (csvContent, filename) => {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  };
+
+  const fetchOrdersForExport = async (startDate, endDate) => {
+    try {
+      const params = new URLSearchParams({
+        limit: '10000', // Large limit to get all orders
+        ...(startDate && { startDate }),
+        ...(endDate && { endDate }),
+      });
+
+      const response = await fetch(`/api/orders?${params.toString()}`);
+      const data = await response.json();
+
+      if (data.success && data.data?.orders) {
+        return data.data.orders;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching orders for export:', error);
+      return [];
+    }
+  };
+
+  const handleExportOrders = async () => {
+    try {
+      const { value: formValues } = await Swal.fire({
+        title: 'Export Orders',
+        html: `
+          <div style="text-align: left; padding: 10px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Start Date:</label>
+            <input 
+              id="swal-start-date" 
+              type="date" 
+              class="swal2-input" 
+              placeholder="Select start date"
+            />
+            <label style="display: block; margin: 15px 0 5px 0; font-weight: bold;">End Date:</label>
+            <input 
+              id="swal-end-date" 
+              type="date" 
+              class="swal2-input" 
+              placeholder="Select end date"
+            />
+            <p style="margin-top: 15px; font-size: 12px; color: #666;">
+              Leave dates empty to export all orders
+            </p>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Export CSV',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#10b981',
+        cancelButtonColor: '#6b7280',
+        preConfirm: () => {
+          const startDate = document.getElementById('swal-start-date').value;
+          const endDate = document.getElementById('swal-end-date').value;
+
+          if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+            Swal.showValidationMessage('Start date must be before end date');
+            return false;
+          }
+
+          return {
+            startDate: startDate || null,
+            endDate: endDate || null
+          };
+        }
+      });
+
+      if (!formValues) {
+        return; // User cancelled
+      }
+
+      setIsExporting(true);
+
+      Swal.fire({
+        title: 'Exporting...',
+        text: 'Please wait while we prepare your export file',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const orders = await fetchOrdersForExport(formValues.startDate, formValues.endDate);
+
+      if (orders.length === 0) {
+        Swal.fire({
+          title: 'No Orders Found',
+          text: 'No orders found for the selected date range',
+          icon: 'info',
+          confirmButtonColor: '#10b981',
+        });
+        setIsExporting(false);
+        return;
+      }
+
+      const csvContent = convertToCSV(orders);
+      const dateStr = formValues.startDate && formValues.endDate
+        ? `${formValues.startDate}_to_${formValues.endDate}`
+        : 'all_orders';
+      const filename = `orders_export_${dateStr}_${new Date().toISOString().split('T')[0]}.csv`;
+
+      downloadCSV(csvContent, filename);
+
+      Swal.fire({
+        title: 'Exported!',
+        text: `${orders.length} order(s) exported successfully`,
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      setIsExporting(false);
+    } catch (error) {
+      console.error('Export error:', error);
+      Swal.fire({
+        title: 'Export Failed',
+        text: error?.message || 'Failed to export orders. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#10b981',
+      });
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -257,9 +513,22 @@ export default function OrdersListPage() {
           whileTap={{ scale: 0.95 }}
           className="flex gap-2"
         >
-          <Button className="bg-gray-500 text-white hover:bg-gray-600 px-4 py-2 flex items-center gap-2">
-            <FaDownload />
-            Export
+          <Button
+            onClick={handleExportOrders}
+            disabled={isLoading || isExporting}
+            className="bg-gray-500 text-white hover:bg-gray-600 px-4 py-2 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isExporting ? (
+              <>
+                <FaSpinner className="animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <FaDownload />
+                Export Orders
+              </>
+            )}
           </Button>
         </motion.div>
       </div>
@@ -307,7 +576,10 @@ export default function OrdersListPage() {
         </select>
 
         <div className="text-sm text-cardForeground/60">
-          {filteredOrders.length} orders found
+          {pagination.totalItems} orders found
+          {isFetching && (
+            <FaSpinner className="inline-block ml-2 animate-spin" />
+          )}
         </div>
       </motion.div>
 
@@ -325,91 +597,101 @@ export default function OrdersListPage() {
               <TableHead>Customer</TableHead>
               <TableHead>Items</TableHead>
               <TableHead>Total</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Payment</TableHead>
+              <TableHead>Order Status</TableHead>
+              <TableHead>Payment Status</TableHead>
               <TableHead>Date</TableHead>
               <TableHead>Actions</TableHead>
             </TableRow>
           </TableHeader>
           <AnimatePresence>
             <TableBody>
-              {filteredOrders.map((order, index) => (
-                <motion.tr
-                  key={order.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="hover:bg-gray-50"
-                >
-                  <TableCell>
-                    <div className="font-mono text-sm font-medium">{order.id}</div>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8">
+                    <FaSpinner className="animate-spin mx-auto text-2xl text-primary" />
+                    <p className="mt-2 text-sm text-mutedForeground">Loading orders...</p>
                   </TableCell>
-                  <TableCell>
-                    <div>
-                      <p className="font-medium">{order.customer.name}</p>
-                      <p className="text-sm text-cardForeground/60">{order.customer.email}</p>
-                    </div>
+                </TableRow>
+              ) : filteredOrders.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center py-8">
+                    <p className="text-mutedForeground">No orders found</p>
                   </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      {order.items.length} item{order.items.length > 1 ? 's' : ''}
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-bold">₨{order.total.toLocaleString()}</TableCell>
-                  <TableCell>
-                    {getStatusBadge(order.status)}
-                  </TableCell>
-                  <TableCell>
-                    {getPaymentStatusBadge(order.paymentStatus)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      {formatDate(order.createdAt)}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2 items-center">
+                </TableRow>
+              ) : (
+                filteredOrders.map((order, index) => (
+                  <motion.tr
+                    key={order._id || order.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.05 }}
+                    className="hover:bg-gray-50"
+                  >
+                    <TableCell>
+                      <div className="font-mono text-sm font-medium">
+                        {order.orderNumber || order._id}
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">
+                          {order.user?.name || "Guest User"}
+                        </p>
+                        <p className="text-sm text-cardForeground/60">
+                          {order.user?.email || "No email"}
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {order.items?.length || 0} item{(order.items?.length || 0) !== 1 ? 's' : ''}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-bold">
+                      ₨{(order.total || 0).toLocaleString('en-PK')}
+                    </TableCell>
+                    <TableCell>
+                      {getStatusBadge(order.orderStatus)}
+                    </TableCell>
+                    <TableCell>
+                      {getPaymentStatusBadge(order.paymentStatus)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {formatDate(order.createdAt)}
+                      </div>
+                    </TableCell>
+                    <TableCell>
                       <motion.button
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
-                        className="text-blue-600 hover:text-blue-800 p-1"
-                        title="View Details"
+                        onClick={() => router.push(`/admin/orders/${order._id}`)}
+                        className="bg-blue-500 text-white px-4 py-2 rounded-md hover:bg-blue-600 transition-colors flex items-center gap-2 text-sm font-medium"
                       >
                         <FaEye />
+                        <span>View Details</span>
                       </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="text-green-600 hover:text-green-800 p-1"
-                        title="Edit Order"
-                      >
-                        <FaEdit />
-                      </motion.button>
-                      <select
-                        value={order.status}
-                        onChange={(e) => handleStatusUpdate(order.id, e.target.value)}
-                        className="text-xs border border-gray-300 rounded px-2 py-1 bg-white"
-                        onClick={(e) => e.stopPropagation()}
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="processing">Processing</option>
-                        <option value="shipped">Shipped</option>
-                        <option value="completed">Completed</option>
-                        <option value="cancelled">Cancelled</option>
-                      </select>
-                    </div>
-                  </TableCell>
-                </motion.tr>
-              ))}
+                    </TableCell>
+                  </motion.tr>
+                ))
+              )}
             </TableBody>
           </AnimatePresence>
         </Table>
       </motion.div>
 
-      {isLoading && (
-        <div className="fixed top-0 left-0 right-0 bottom-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
-        </div>
+      {/* Pagination */}
+      {!isLoading && filteredOrders.length > 0 && (
+        <Pagination
+          currentPage={pagination.currentPage}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          itemsPerPage={pagination.itemsPerPage}
+          onPageChange={(newPage) => {
+            setPage(newPage);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }}
+        />
       )}
     </motion.div>
   );
