@@ -1,111 +1,64 @@
-import ProductGrid from "@/components/ProductGrid";
+'use client';
 
-// Sample product data based on the original HTML
-const products = [
-  {
-    id: 'hoodie-pack-of-2',
-    title: 'Hoodie- Pack of 2',
-    price: 299900, // PKR in paisa
-    compareAtPrice: 500000,
-    discountPercentage: 40,
-    image: 'https://mettwear.com/cdn/shop/files/PO2_Hoodie.jpg?v=1730314234',
-    hoverImage: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-white.jpg?v=1696799478',
-    sizes: ['M', 'L', 'XL'],
-    badge: 'sale'
-  },
-  {
-    id: 'hoodie-black',
-    title: 'Hoodie-Black',
-    price: 185000,
-    compareAtPrice: 280000,
-    discountPercentage: 34,
-    image: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-Black.jpg?v=1696798486',
-    sizes: ['M', 'L', 'XL'],
-    badge: 'sale'
-  },
-  {
-    id: 'hoodie-white',
-    title: 'Hoodie-White',
-    price: 185000,
-    compareAtPrice: 280000,
-    discountPercentage: 34,
-    image: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-white.jpg?v=1696799478',
-    sizes: ['M', 'L', 'XL'],
-    badge: 'sale'
-  },
-  {
-    id: 'hoodie-charcoal-gray',
-    title: 'Hoodie-Charcoal Gray',
-    price: 185000,
-    compareAtPrice: 280000,
-    discountPercentage: 34,
-    image: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-CharcoalGrey.jpg?v=1696798670',
-    sizes: ['M', 'L', 'XL'],
-    badge: 'sale'
-  },
-  {
-    id: 'hoodie-navy-blue',
-    title: 'Hoodie-Navy Blue',
-    price: 185000,
-    compareAtPrice: 280000,
-    discountPercentage: 34,
-    image: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-NavyBlue.jpg?v=1696799236',
-    sizes: ['M', 'L', 'XL'],
-    badge: 'sale'
-  },
-  {
-    id: 'hoodie-sky-blue',
-    title: 'Hoodie-Sky Blue',
-    price: 185000,
-    compareAtPrice: 280000,
-    discountPercentage: 34,
-    image: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-LightBlue.jpg?v=1696799178',
-    sizes: ['M', 'L', 'XL'],
-    badge: 'sale'
-  },
-  {
-    id: 'hoodie-beige',
-    title: 'Hoodie-Beige',
-    price: 185000,
-    compareAtPrice: 280000,
-    discountPercentage: 34,
-    image: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-Khaki.jpg?v=1696799149',
-    sizes: ['M', 'L', 'XL'],
-    badge: 'sale'
-  },
-  {
-    id: 'hoodie-army-green',
-    title: 'Hoodie-Army Green',
-    price: 185000,
-    compareAtPrice: 280000,
-    discountPercentage: 34,
-    image: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-ArmyGreen.jpg?v=1696796359',
-    sizes: ['M', 'L', 'XL'],
-    badge: 'sale'
-  },
-  {
-    id: 'hoodie-maroon',
-    title: 'Hoodie-Maroon',
-    price: 185000,
-    compareAtPrice: 280000,
-    discountPercentage: 34,
-    image: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-Marron.jpg?v=1696799209',
-    sizes: ['M', 'L', 'XL'],
-    badge: 'sale'
-  },
-  {
-    id: 'hoodie-bottle-green',
-    title: 'Hoodie-Bottle Green',
-    price: 185000,
-    compareAtPrice: 280000,
-    discountPercentage: 34,
-    image: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-BottleGreen.jpg?v=1696798585',
-    sizes: ['M', 'L', 'XL'],
-    badge: 'sale'
-  }
-];
+import { useState, useEffect } from 'react';
+import { useGetProductsQuery } from "@/redux/api/Products";
+import ProductGrid from "@/components/ProductGrid";
+import { transformProductForFrontend } from "@/utils/productTransformers";
 
 export default function Home() {
+  const [filters, setFilters] = useState({
+    category: 'all',
+    minPrice: '',
+    maxPrice: '',
+    sortBy: 'featured'
+  });
+  const [page, setPage] = useState(1);
+  const [allProducts, setAllProducts] = useState([]);
+
+  // Reset products and page when filters change
+  useEffect(() => {
+    setPage(1);
+    setAllProducts([]);
+  }, [filters.category, filters.minPrice, filters.maxPrice, filters.sortBy]);
+
+  const queryParams = {
+    status: 'active',
+    limit: 20, // Smaller limit for better pagination
+    page,
+    ...(filters.category !== 'all' && { category: filters.category }),
+    ...(filters.minPrice && { minPrice: filters.minPrice }),
+    ...(filters.maxPrice && { maxPrice: filters.maxPrice }),
+    ...(filters.sortBy && { sortBy: filters.sortBy })
+  };
+
+  const { data, isFetching, isLoading, isError, error } = useGetProductsQuery(queryParams);
+
+  // Update allProducts when new data arrives
+  useEffect(() => {
+    if (data?.data?.products) {
+      const transformedProducts = data.data.products
+        .map(transformProductForFrontend)
+        .filter(Boolean);
+
+      if (page === 1) {
+        // First page or filter change - replace all products
+        setAllProducts(transformedProducts);
+      } else {
+        // Subsequent pages - append products
+        setAllProducts(prev => [...prev, ...transformedProducts]);
+      }
+    }
+  }, [data, page]);
+
+  const hasMore = data?.data?.pagination?.hasMore || false;
+  const totalProducts = data?.data?.pagination?.totalItems || allProducts.length;
+
+  const handleLoadMore = () => {
+    if (hasMore && !isFetching) {
+      setPage(prev => prev + 1);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-white">
       {/* Promo Banner */}
@@ -118,7 +71,30 @@ export default function Home() {
       </section>
 
       {/* Main Content */}
-      <ProductGrid products={products} />
+      {isLoading ? (
+        <div className="container !py-12">
+          <div className="flex justify-center items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+          </div>
+        </div>
+      ) : isError ? (
+        <div className="container !py-12">
+          <div className="text-center text-red-500">
+            {error?.data?.message || 'Failed to load products. Please try again later.'}
+          </div>
+        </div>
+      ) : (
+        <ProductGrid
+          products={allProducts}
+          filters={filters}
+          onFiltersChange={setFilters}
+          totalProducts={totalProducts}
+          isLoading={isFetching}
+          hasMore={hasMore}
+          onLoadMore={handleLoadMore}
+          isLoadMoreLoading={isFetching && page > 1}
+        />
+      )}
 
       {/* Reviews Section */}
       <section className="py-16 bg-gray-50">

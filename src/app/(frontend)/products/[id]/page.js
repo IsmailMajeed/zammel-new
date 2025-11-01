@@ -1,79 +1,106 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useParams } from 'next/navigation';
 import { Heart, ShoppingCart, Minus, Plus, ArrowLeft, Star, Truck, Shield, RotateCcw } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { addToCart } from '@/redux/slices/Cart';
 import { addToWishlist, removeFromWishlist } from '@/redux/slices/Wishlist';
+import { useGetProductByIdQuery, useGetProductsQuery } from '@/redux/api/Products';
 import { toast } from 'sonner';
 import { BRAND } from '@/utils/brandConstants';
+import { transformProductForDetail, getVariantByColorAndSize } from '@/utils/productTransformers';
 
-// Sample product data - in real app this would come from API
-const productData = {
-  'hoodie-pack-of-2': {
-    id: 'hoodie-pack-of-2',
-    title: 'Hoodie- Pack of 2',
-    price: 299900,
-    compareAtPrice: 500000,
-    discountPercentage: 40,
-    image: 'https://mettwear.com/cdn/shop/files/PO2_Hoodie.jpg?v=1730314234',
-    hoverImage: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-white.jpg?v=1696799478',
-    images: [
-      'https://mettwear.com/cdn/shop/files/PO2_Hoodie.jpg?v=1730314234',
-      'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-white.jpg?v=1696799478',
-      'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-Black.jpg?v=1696798486',
-      'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-CharcoalGrey.jpg?v=1696798670'
-    ],
-    sizes: ['M', 'L', 'XL'],
-    colors: ['Black', 'White', 'Charcoal Gray', 'Navy Blue'],
-    description: 'Premium quality hoodie pack of 2. Made with the finest materials for ultimate comfort and style. Perfect for casual wear and outdoor activities.',
-    features: [
-      'Premium cotton blend material',
-      'Comfortable fit',
-      'Durable construction',
-      'Machine washable',
-      'Available in multiple colors'
-    ],
-    badge: 'sale'
-  },
-  'hoodie-black': {
-    id: 'hoodie-black',
-    title: 'Hoodie-Black',
-    price: 185000,
-    compareAtPrice: 280000,
-    discountPercentage: 34,
-    image: 'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-Black.jpg?v=1696798486',
-    images: [
-      'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-Black.jpg?v=1696798486',
-      'https://mettwear.com/cdn/shop/files/mettwear-Hoodie-white.jpg?v=1696799478'
-    ],
-    sizes: ['M', 'L', 'XL'],
-    colors: ['Black'],
-    description: 'Classic black hoodie with premium quality material. Perfect for everyday wear and casual outings.',
-    features: [
-      'Premium cotton blend',
-      'Classic black color',
-      'Comfortable hood',
-      'Kangaroo pocket',
-      'Ribbed cuffs and hem'
-    ],
-    badge: 'sale'
-  }
-};
+export default function ProductPage() {
+  const params = useParams();
+  const productId = params?.id;
 
-export default function ProductPage({ params }) {
-  const [selectedSize, setSelectedSize] = useState('M');
-  const [selectedColor, setSelectedColor] = useState(0);
+  const [selectedSize, setSelectedSize] = useState('');
+  const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
 
   const dispatch = useDispatch();
   const { items: wishlistItems } = useSelector(state => state.wishlist);
 
-  const product = productData[params.id] || productData['hoodie-pack-of-2'];
-  const isInWishlist = wishlistItems.some(item => item.id === product.id);
+  const { data: productData, isLoading, isError } = useGetProductByIdQuery(productId);
+  const { data: relatedProductsData } = useGetProductsQuery({
+    status: 'active',
+    limit: 4,
+    page: 1
+  });
+
+  const product = useMemo(() => {
+    if (!productData?.data) return null;
+    return transformProductForDetail(productData.data);
+  }, [productData]);
+
+  // Get available sizes for selected color
+  const availableSizesForColor = useMemo(() => {
+    if (!product?._fullData || !selectedColor) return product?.sizes || [];
+    const colorVariants = product._fullData.variants?.filter(v =>
+      v.color?.toLowerCase() === selectedColor?.toLowerCase()
+    ) || [];
+    const sizes = [...new Set(colorVariants.map(v => v.size).filter(Boolean))];
+    return sizes;
+  }, [product, selectedColor]);
+
+  // Set default size and color
+  useEffect(() => {
+    if (product && !selectedColor && product.colors.length > 0) {
+      setSelectedColor(product.colors[0]);
+    }
+  }, [product]);
+
+  // Auto-adjust size when color changes
+  useEffect(() => {
+    if (selectedColor && product?._fullData) {
+      // If current size is not available for selected color, switch to first available
+      if (selectedSize && !availableSizesForColor.includes(selectedSize)) {
+        if (availableSizesForColor.length > 0) {
+          setSelectedSize(availableSizesForColor[0]);
+        }
+      } else if (!selectedSize && availableSizesForColor.length > 0) {
+        setSelectedSize(availableSizesForColor[0]);
+      }
+    }
+  }, [selectedColor, availableSizesForColor, product]);
+
+  const isInWishlist = product ? wishlistItems.some(item => item.id === product.id) : false;
+
+  // Get current variant based on selected color and size
+  const currentVariant = useMemo(() => {
+    if (!product?._fullData) return null;
+    return getVariantByColorAndSize(product._fullData, selectedColor, selectedSize);
+  }, [product, selectedColor, selectedSize]);
+
+  // Get images for current variant
+  const currentImages = useMemo(() => {
+    if (currentVariant?.images?.length > 0) {
+      return currentVariant.images;
+    }
+    return product?.images || [];
+  }, [currentVariant, product]);
+
+  // Get price for current variant
+  const currentPrice = useMemo(() => {
+    if (currentVariant) {
+      const price = Math.round((currentVariant.price || 0) * 100); // Convert to paisa
+      return price;
+    }
+    return product?.price || 0;
+  }, [currentVariant, product]);
+
+  // Get compare at price for current variant
+  const currentCompareAtPrice = useMemo(() => {
+    if (currentVariant && currentVariant.discount > 0) {
+      const price = Math.round((currentVariant.price || 0) * 100);
+      return Math.round(price / (1 - currentVariant.discount / 100));
+    }
+    return product?.compareAtPrice || null;
+  }, [currentVariant, product]);
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-PK', {
@@ -83,20 +110,60 @@ export default function ProductPage({ params }) {
     }).format(price);
   };
 
+  const { items: cartItems } = useSelector(state => state.cart);
+
+  // Check cart quantity for this variant
+  const cartItemId = `${product?.id}-${selectedColor}-${selectedSize}`;
+  const cartQuantity = product ? cartItems.find(item => item.id === cartItemId)?.quantity || 0 : 0;
+  const availableStock = currentVariant ? (currentVariant.quantity || 0) - cartQuantity : 0;
+  const maxQuantityAllowed = Math.min(quantity, availableStock);
+
   const handleAddToCart = () => {
+    if (!product || !currentVariant) return;
+
+    if (!selectedSize || !selectedColor) {
+      toast.error('Please select size and color');
+      return;
+    }
+
+    if (currentVariant.quantity <= 0) {
+      toast.error('Out of Stock', { description: 'This product variant is currently out of stock' });
+      return;
+    }
+
+    if (availableStock <= 0) {
+      toast.error('Stock Limit Reached', {
+        description: `Only ${currentVariant.quantity} item(s) available. Please reduce quantity in cart or select a different variant.`
+      });
+      return;
+    }
+
+    if (quantity > availableStock) {
+      toast.error('Insufficient Stock', {
+        description: `Only ${availableStock} item(s) available. Please adjust quantity.`
+      });
+      return;
+    }
+
     dispatch(addToCart({
-      id: product.id,
+      id: cartItemId,
+      productId: product.id,
       name: product.title,
-      price: product.price,
-      images: product.images,
+      price: currentPrice,
+      images: currentImages,
       brand: BRAND.name,
       size: selectedSize,
-      color: product.colors[selectedColor]
+      color: selectedColor,
+      quantity,
+      maxQuantity: currentVariant.quantity,
+      variant: currentVariant
     }));
-    toast.success('Added to cart', { description: product.title });
+    toast.success('Added to cart', { description: `${product.title} (${selectedSize}, ${selectedColor})` });
   };
 
   const handleWishlistToggle = () => {
+    if (!product) return;
+
     if (isInWishlist) {
       dispatch(removeFromWishlist(product.id));
       toast('Removed from wishlist', { description: product.title });
@@ -107,56 +174,109 @@ export default function ProductPage({ params }) {
   };
 
   const handleQuantityChange = (newQuantity) => {
-    if (newQuantity >= 1 && newQuantity <= 10) {
+    const maxQuantity = Math.min(availableStock, currentVariant?.quantity || 0);
+    if (newQuantity >= 1 && newQuantity <= maxQuantity) {
       setQuantity(newQuantity);
+    } else if (newQuantity > maxQuantity) {
+      toast.error('Insufficient Stock', {
+        description: `Only ${availableStock} item(s) available.`
+      });
     }
   };
+
+  if (isLoading) {
+    return (
+      <main className="min-h-screen bg-white py-5">
+        <div className="container py-8">
+          <div className="flex justify-center items-center min-h-[60vh]">
+            <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-gray-900"></div>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  if (isError || !product) {
+    return (
+      <main className="min-h-screen bg-white py-5">
+        <div className="container py-8">
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-bold text-gray-900 mb-4">Product Not Found</h1>
+            <p className="text-gray-600 mb-6">The product you're looking for doesn't exist or has been removed.</p>
+            <Link href="/" className="text-blue-600 hover:text-blue-800">
+              <ArrowLeft className="inline w-4 h-4 mr-2" />
+              Back to Home
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
+  const relatedProducts = relatedProductsData?.data?.products
+    ?.map(p => transformProductForDetail(p))
+    .filter(p => p && p.id !== product.id)
+    .slice(0, 4) || [];
 
   return (
     <main className="min-h-screen bg-white py-5">
       <div className="container py-8">
+        <Link href="/" className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-6">
+          <ArrowLeft className="w-4 h-4 mr-2" />
+          Back to Products
+        </Link>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
           {/* Product Images */}
           <div className="space-y-4">
             {/* Main Image */}
             <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
-              <Image
-                src={product.images[selectedImage]}
-                alt={product.title}
-                fill
-                className="object-cover"
-                sizes="(max-width: 768px) 100vw, 50vw"
-              />
+              {currentImages[selectedImage] && (
+                <Image
+                  src={currentImages[selectedImage]}
+                  alt={product.title}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                />
+              )}
 
               {/* Product Badge */}
               <div className="absolute top-4 left-4">
-                {product.badge === 'sale' && (
+                {product.badge === 'sale' && currentVariant?.discount > 0 && (
                   <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    -{product.discountPercentage}%
+                    -{currentVariant.discount}%
+                  </span>
+                )}
+                {product.badge === 'new' && (
+                  <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                    NEW
                   </span>
                 )}
               </div>
             </div>
 
             {/* Thumbnail Images */}
-            <div className="grid grid-cols-4 gap-2">
-              {product.images.map((image, index) => (
-                <button
-                  key={index}
-                  onClick={() => setSelectedImage(index)}
-                  className={`relative aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 transition-colors ${selectedImage === index ? 'border-gray-900' : 'border-transparent'
-                    }`}
-                >
-                  <Image
-                    src={image}
-                    alt={`${product.title} ${index + 1}`}
-                    fill
-                    className="object-cover"
-                    sizes="100px"
-                  />
-                </button>
-              ))}
-            </div>
+            {currentImages.length > 1 && (
+              <div className="grid grid-cols-4 gap-2">
+                {currentImages.map((image, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setSelectedImage(index)}
+                    className={`relative aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 transition-colors ${selectedImage === index ? 'border-gray-900' : 'border-transparent'
+                      }`}
+                  >
+                    <Image
+                      src={image}
+                      alt={`${product.title} ${index + 1}`}
+                      fill
+                      className="object-cover"
+                      sizes="100px"
+                    />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Product Info */}
@@ -165,18 +285,18 @@ export default function ProductPage({ params }) {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{product.title}</h1>
               <div className="flex items-center space-x-4 mb-4">
                 <div className="flex items-center space-x-2">
-                  {product.compareAtPrice && product.compareAtPrice > product.price ? (
+                  {currentCompareAtPrice && currentCompareAtPrice > currentPrice ? (
                     <>
                       <span className="text-2xl font-bold text-gray-900">
-                        {formatPrice(product.price)}
+                        {formatPrice(currentPrice / 100)}
                       </span>
                       <span className="text-lg text-gray-500 line-through">
-                        {formatPrice(product.compareAtPrice)}
+                        {formatPrice(currentCompareAtPrice / 100)}
                       </span>
                     </>
                   ) : (
                     <span className="text-2xl font-bold text-gray-900">
-                      {formatPrice(product.price)}
+                      {formatPrice(currentPrice / 100)}
                     </span>
                   )}
                 </div>
@@ -196,44 +316,115 @@ export default function ProductPage({ params }) {
             </div>
 
             {/* Colors */}
-            {product.colors && product.colors.length > 1 && (
+            {product.colors && product.colors.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Colors</h3>
-                <div className="flex space-x-2">
-                  {product.colors.map((color, index) => (
-                    <button
-                      key={index}
-                      onClick={() => setSelectedColor(index)}
-                      className={`px-4 py-2 border rounded-lg transition-colors ${selectedColor === index
-                        ? 'border-gray-900 bg-gray-900 text-white'
-                        : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                        }`}
-                    >
-                      {color}
-                    </button>
-                  ))}
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Colors ({product.colors.length} {product.colors.length === 1 ? 'option' : 'options'})
+                </h3>
+                <div className="flex flex-wrap gap-3">
+                  {product.colors.map((color, index) => {
+                    // Find any variant with this color to get colorCode
+                    const colorVariant = product._fullData?.variants?.find(v =>
+                      v.color?.toLowerCase() === color?.toLowerCase()
+                    );
+
+                    // Check if this color has any available stock across all sizes
+                    const colorVariants = product._fullData?.variants?.filter(v =>
+                      v.color?.toLowerCase() === color?.toLowerCase()
+                    ) || [];
+                    const hasAvailableStock = colorVariants.some(v => (v.quantity || 0) > 0);
+                    const colorCode = colorVariant?.colorCode;
+
+                    return (
+                      <button
+                        key={index}
+                        onClick={() => {
+                          setSelectedColor(color);
+                          setSelectedImage(0);
+                        }}
+                        className={`relative group flex items-center space-x-2 px-4 py-2 border-2 rounded-lg transition-all ${selectedColor === color
+                          ? 'border-gray-900 bg-gray-50 shadow-md scale-105'
+                          : 'border-gray-300 hover:border-gray-500 hover:shadow-sm'
+                          } ${!hasAvailableStock ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
+                        disabled={!hasAvailableStock}
+                        title={!hasAvailableStock ? 'Out of stock' : `Select ${color}`}
+                      >
+                        {/* Color Swatch */}
+                        <div
+                          className={`w-6 h-6 rounded-full border-2 ${selectedColor === color ? 'border-gray-900' : 'border-gray-300'
+                            }`}
+                          style={{
+                            backgroundColor: colorCode || 'transparent',
+                            backgroundImage: !colorCode ? 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)' : 'none',
+                            backgroundSize: '8px 8px',
+                            backgroundPosition: '0 0, 0 4px, 4px -4px, -4px 0px'
+                          }}
+                        />
+                        {/* Color Name */}
+                        <span className={`font-medium ${selectedColor === color ? 'text-gray-900' : 'text-gray-700'
+                          }`}>
+                          {color}
+                        </span>
+                        {/* Selected Indicator */}
+                        {selectedColor === color && (
+                          <svg className="w-4 h-4 text-gray-900" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                        {/* Out of Stock Badge */}
+                        {!hasAvailableStock && (
+                          <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                            Out
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
             {/* Sizes */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Size</h3>
-              <div className="flex space-x-2">
-                {product.sizes.map((size) => (
-                  <button
-                    key={size}
-                    onClick={() => setSelectedSize(size)}
-                    className={`w-12 h-12 border rounded-lg transition-colors ${selectedSize === size
-                      ? 'border-gray-900 bg-gray-900 text-white'
-                      : 'border-gray-300 text-gray-700 hover:border-gray-400'
-                      }`}
-                  >
-                    {size}
-                  </button>
-                ))}
+            {selectedColor && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">
+                  Size {availableSizesForColor.length > 0 && (
+                    <span className="text-sm font-normal text-gray-500">
+                      ({availableSizesForColor.length} {availableSizesForColor.length === 1 ? 'option' : 'options'})
+                    </span>
+                  )}
+                </h3>
+                {availableSizesForColor.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {availableSizesForColor.map((size) => {
+                      // Get variant for this color and size to check stock
+                      const sizeVariant = product._fullData?.variants?.find(v =>
+                        v.color?.toLowerCase() === selectedColor?.toLowerCase() &&
+                        v.size === size
+                      );
+                      const hasStock = (sizeVariant?.quantity || 0) > 0;
+
+                      return (
+                        <button
+                          key={size}
+                          onClick={() => setSelectedSize(size)}
+                          disabled={!hasStock}
+                          className={`w-12 h-12 border-2 rounded-lg transition-all font-medium ${selectedSize === size
+                            ? 'border-gray-900 bg-gray-900 text-white shadow-md scale-105'
+                            : 'border-gray-300 text-gray-700 hover:border-gray-500 hover:shadow-sm'
+                            } ${!hasStock ? 'opacity-50 cursor-not-allowed line-through' : 'cursor-pointer'}`}
+                          title={!hasStock ? 'Out of stock' : `Select ${size}`}
+                        >
+                          {size}
+                        </button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">No sizes available for this color</p>
+                )}
               </div>
-            </div>
+            )}
 
             {/* Quantity */}
             <div>
@@ -249,22 +440,41 @@ export default function ProductPage({ params }) {
                 <span className="text-lg font-semibold w-8 text-center">{quantity}</span>
                 <button
                   onClick={() => handleQuantityChange(quantity + 1)}
-                  disabled={quantity >= 10}
+                  disabled={quantity >= availableStock || availableStock <= 0}
                   className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
+              {currentVariant && (
+                <p className={`text-sm mt-2 ${availableStock > 0 ? 'text-gray-500' : 'text-red-600 font-medium'}`}>
+                  {availableStock > 0
+                    ? `${availableStock} ${availableStock === 1 ? 'item' : 'items'} available in inventory`
+                    : 'Out of stock'}
+                  {cartQuantity > 0 && availableStock > 0 && (
+                    <span className="block text-xs text-gray-400 mt-1">
+                      ({cartQuantity} already in cart)
+                    </span>
+                  )}
+                </p>
+              )}
             </div>
 
             {/* Action Buttons */}
             <div className="space-y-3">
               <button
                 onClick={handleAddToCart}
-                className="w-full bg-gray-900 text-white py-3 px-6 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2"
+                disabled={!currentVariant || availableStock <= 0 || currentVariant.quantity <= 0}
+                className={`w-full bg-gray-900 text-white py-3 px-6 rounded-lg hover:bg-gray-800 transition-colors flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed ${!currentVariant || availableStock <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
               >
                 <ShoppingCart className="w-5 h-5" />
-                <span>Add to Cart</span>
+                <span>
+                  {!currentVariant || currentVariant.quantity <= 0
+                    ? 'Out of Stock'
+                    : availableStock <= 0
+                      ? 'Stock Limit Reached'
+                      : 'Add to Cart'}
+                </span>
               </button>
 
               <button
@@ -280,17 +490,19 @@ export default function ProductPage({ params }) {
             </div>
 
             {/* Features */}
-            <div>
-              <h3 className="text-lg font-semibold text-gray-900 mb-3">Features</h3>
-              <ul className="space-y-2">
-                {product.features.map((feature, index) => (
-                  <li key={index} className="flex items-center space-x-2 text-gray-600">
-                    <div className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
-                    <span>{feature}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            {product.features && product.features.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Features</h3>
+                <ul className="space-y-2">
+                  {product.features.map((feature, index) => (
+                    <li key={index} className="flex items-center space-x-2 text-gray-600">
+                      <div className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
+                      <span>{feature}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
 
             {/* Trust Badges */}
             <div className="grid grid-cols-3 gap-4 pt-6 border-t border-gray-200">
@@ -311,39 +523,43 @@ export default function ProductPage({ params }) {
         </div>
 
         {/* Related Products */}
-        <div className="mt-16 border-t py-10">
-          <h2 className="text-2xl font-bold text-gray-900 mb-8">You might also like</h2>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {Object.values(productData).slice(0, 4).map((relatedProduct) => (
-              <div key={relatedProduct.id} className="group">
-                <Link href={`/products/${relatedProduct.id}`}>
-                  <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden mb-3">
-                    <Image
-                      src={relatedProduct.image}
-                      alt={relatedProduct.title}
-                      fill
-                      className="object-cover group-hover:scale-105 transition-transform duration-300"
-                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                    />
-                  </div>
-                  <h3 className="font-medium text-gray-900 group-hover:text-gray-600 transition-colors">
-                    {relatedProduct.title}
-                  </h3>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <span className="font-semibold text-gray-900">
-                      {formatPrice(relatedProduct.price)}
-                    </span>
-                    {relatedProduct.compareAtPrice && (
-                      <span className="text-sm text-gray-500 line-through">
-                        {formatPrice(relatedProduct.compareAtPrice)}
+        {relatedProducts.length > 0 && (
+          <div className="mt-16 border-t py-10">
+            <h2 className="text-2xl font-bold text-gray-900 mb-8">You might also like</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {relatedProducts.map((relatedProduct) => (
+                <div key={relatedProduct.id} className="group">
+                  <Link href={`/products/${relatedProduct.id}`}>
+                    <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden mb-3">
+                      {relatedProduct.image && (
+                        <Image
+                          src={relatedProduct.image}
+                          alt={relatedProduct.title}
+                          fill
+                          className="object-cover group-hover:scale-105 transition-transform duration-300"
+                          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                        />
+                      )}
+                    </div>
+                    <h3 className="font-medium text-gray-900 group-hover:text-gray-600 transition-colors">
+                      {relatedProduct.title}
+                    </h3>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <span className="font-semibold text-gray-900">
+                        {formatPrice(relatedProduct.price / 100)}
                       </span>
-                    )}
-                  </div>
-                </Link>
-              </div>
-            ))}
+                      {relatedProduct.compareAtPrice && (
+                        <span className="text-sm text-gray-500 line-through">
+                          {formatPrice(relatedProduct.compareAtPrice / 100)}
+                        </span>
+                      )}
+                    </div>
+                  </Link>
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </main>
   );

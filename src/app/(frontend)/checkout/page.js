@@ -1,13 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { clearCart } from '@/redux/slices/Cart';
+import { clearCart, updateQuantity, removeFromCart } from '@/redux/slices/Cart';
+import { useCreateOrderMutation } from '@/redux/api/Orders';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { CreditCard, MapPin, Phone, Mail, ArrowLeft, Lock } from 'lucide-react';
+import { CreditCard, MapPin, Phone, Mail, ArrowLeft, Lock, AlertTriangle } from 'lucide-react';
 import Link from 'next/link';
-import { BRAND } from '@/utils/brandConstants';
+import { getVariantByColorAndSize } from '@/utils/productTransformers';
+import Swal from 'sweetalert2';
 
 export default function CheckoutPage() {
   const [formData, setFormData] = useState({
@@ -26,20 +28,120 @@ export default function CheckoutPage() {
   });
 
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isValidatingStock, setIsValidatingStock] = useState(true);
+  const [stockIssues, setStockIssues] = useState([]);
   const dispatch = useDispatch();
   const router = useRouter();
   const { items, total, itemCount } = useSelector(state => state.cart);
+  const { user } = useSelector(state => state.user);
+  const [createOrder, { isLoading: isCreatingOrder }] = useCreateOrderMutation();
+
+  // Validate stock on component mount
+  useEffect(() => {
+    const validateStock = async () => {
+      if (items.length === 0) {
+        setIsValidatingStock(false);
+        return;
+      }
+
+      const issues = [];
+
+      for (const item of items) {
+        if (!item.productId) continue;
+
+        try {
+          // Fetch fresh product data
+          const response = await fetch(`/api/products/${item.productId}`);
+          if (!response.ok) continue;
+
+          const result = await response.json();
+          if (!result.success || !result.data) continue;
+
+          const product = result.data;
+
+          // Find variant
+          const variant = getVariantByColorAndSize(
+            product,
+            item.color || '',
+            item.size || ''
+          );
+
+          if (!variant) {
+            issues.push({
+              itemId: item.id,
+              productName: item.name,
+              issue: 'not_found',
+              message: 'Product variant not found. It may have been removed.'
+            });
+            continue;
+          }
+
+          const availableStock = variant.quantity || 0;
+
+          if (availableStock <= 0) {
+            issues.push({
+              itemId: item.id,
+              productName: item.name,
+              issue: 'out_of_stock',
+              message: 'This product is now out of stock.'
+            });
+          } else if (item.quantity > availableStock) {
+            issues.push({
+              itemId: item.id,
+              productName: item.name,
+              issue: 'quantity_reduced',
+              availableStock,
+              requestedQuantity: item.quantity,
+              message: `Only ${availableStock} item(s) available. Quantity has been adjusted.`
+            });
+
+            // Update cart quantity
+            dispatch(updateQuantity({
+              id: item.id,
+              quantity: availableStock,
+              maxQuantity: availableStock
+            }));
+          }
+        } catch (error) {
+          console.error('Error validating stock for item:', item.id, error);
+        }
+      }
+
+      setStockIssues(issues);
+      setIsValidatingStock(false);
+
+      // Show summary toast
+      if (issues.length > 0) {
+        const outOfStock = issues.filter(i => i.issue === 'out_of_stock').length;
+        const reduced = issues.filter(i => i.issue === 'quantity_reduced').length;
+
+        let message = 'Some items in your cart have stock issues: ';
+        if (outOfStock > 0) {
+          message += `${outOfStock} item(s) out of stock. `;
+        }
+        if (reduced > 0) {
+          message += `${reduced} item(s) quantity reduced. `;
+        }
+        message += 'Please review your cart below.';
+
+        toast.error('Stock Updated', { description: message, duration: 8000 });
+      }
+    };
+
+    validateStock();
+    // eslint-disable-next-line
+  }, []); // Only run once on mount
 
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-PK', {
       style: 'currency',
       currency: 'PKR',
       minimumFractionDigits: 0,
-    }).format(price);
+    }).format(price / 100); // Convert from paisa to PKR
   };
 
   const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const shipping = subtotal > 50 ? 0 : 5.99;
+  const shipping = subtotal > 500000 ? 0 : 500; // Free shipping over 5000 PKR (500000 paisa)
   const tax = subtotal * 0.08;
   const finalTotal = subtotal + shipping + tax;
 
@@ -51,17 +153,137 @@ export default function CheckoutPage() {
     }));
   };
 
+  const handleRemoveItem = (itemId) => {
+    dispatch(removeFromCart(itemId));
+    setStockIssues(prev => prev.filter(issue => issue.itemId !== itemId));
+    toast('Item removed from cart');
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Don't allow checkout if there are stock issues
+    if (stockIssues.some(issue => issue.issue === 'out_of_stock')) {
+      toast.error('Cannot Proceed', {
+        description: 'Please remove out of stock items before checkout.'
+      });
+      return;
+    }
+
+    // Don't proceed if still validating
+    if (isValidatingStock) {
+      toast.error('Please wait', {
+        description: 'Stock validation in progress. Please wait...'
+      });
+      return;
+    }
+
     setIsProcessing(true);
 
-    // Simulate processing
-    setTimeout(() => {
+    try {
+      // Prepare order items
+      const orderItems = items.map(item => ({
+        productId: item.productId,
+        productName: item.name,
+        quantity: item.quantity,
+        variant: {
+          color: item.color || '',
+          size: item.size || ''
+        },
+        images: item.images || []
+      }));
+
+      // Prepare shipping address
+      const shippingAddress = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        postalCode: formData.postalCode
+      };
+
+      // Create order
+      const result = await createOrder({
+        items: orderItems,
+        shippingAddress,
+        paymentMethod: formData.paymentMethod,
+        subtotal: subtotal / 100, // Convert from paisa to PKR
+        shipping: shipping / 100, // Convert from paisa to PKR
+        tax: tax / 100, // Convert from paisa to PKR
+        discount: 0,
+        total: finalTotal / 100, // Convert from paisa to PKR
+        userId: user?._id || null
+      }).unwrap();
+
+      // Success
       dispatch(clearCart());
-      toast.success('Order placed successfully!');
-      router.push('/');
+
+      // SHOW Swal.fire INSTEAD OF TOAST
+      await Swal.fire({
+        icon: 'success',
+        title: 'Order Placed Successfully!',
+        html: `<div style="font-size:1.2em">Order #<b>${result.data.order.orderNumber}</b> has been placed.</div>`,
+        confirmButtonText: 'View Order',
+        allowOutsideClick: false,
+        customClass: {
+          popup: 'swal2-custom-popup'
+        }
+      });
+
+      // Redirect to order confirmation or home
+      router.push(`/orders/${result.data.order._id}`);
+    } catch (error) {
+      console.error('Order creation error:', error);
+
+      // Handle stock issues from API
+      if (error?.data?.details?.stockIssues) {
+        const apiStockIssues = error.data.details.stockIssues;
+        setStockIssues(apiStockIssues);
+
+        // Update cart quantities if API reduced them
+        apiStockIssues.forEach(issue => {
+          if (issue.issue === 'insufficient_stock' && issue.availableStock) {
+            const item = items.find(i =>
+              i.productName === issue.productName &&
+              i.color === issue.variant?.color &&
+              i.size === issue.variant?.size
+            );
+            if (item) {
+              dispatch(updateQuantity({
+                id: item.id,
+                quantity: issue.availableStock,
+                maxQuantity: issue.availableStock
+              }));
+            }
+          }
+        });
+
+        const outOfStockCount = apiStockIssues.filter(i => i.issue === 'out_of_stock').length;
+        const reducedCount = apiStockIssues.filter(i => i.issue === 'insufficient_stock').length;
+
+        let errorMessage = 'Order cannot be processed: ';
+        if (outOfStockCount > 0) {
+          errorMessage += `${outOfStockCount} item(s) out of stock. `;
+        }
+        if (reducedCount > 0) {
+          errorMessage += `${reducedCount} item(s) quantity reduced. `;
+        }
+        errorMessage += 'Please review your cart.';
+
+        toast.error('Stock Issues', {
+          description: errorMessage,
+          duration: 8000
+        });
+      } else {
+        toast.error('Order Failed', {
+          description: error?.data?.message || 'Failed to place order. Please try again.'
+        });
+      }
+    } finally {
       setIsProcessing(false);
-    }, 2000);
+    }
   };
 
   if (items.length === 0) {
@@ -312,10 +534,16 @@ export default function CheckoutPage() {
               {/* Place Order Button */}
               <button
                 type="submit"
-                disabled={isProcessing}
-                className="w-full bg-gray-900 text-white py-4 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-60 font-medium text-lg"
+                disabled={isProcessing || isCreatingOrder || isValidatingStock || stockIssues.some(i => i.issue === 'out_of_stock')}
+                className="w-full bg-gray-900 text-white py-4 rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-60 disabled:cursor-not-allowed font-medium text-lg"
               >
-                {isProcessing ? 'Processing...' : `Place Order - ${formatPrice(finalTotal)}`}
+                {isProcessing || isCreatingOrder
+                  ? 'Processing Order...'
+                  : isValidatingStock
+                    ? 'Validating Stock...'
+                    : stockIssues.some(i => i.issue === 'out_of_stock')
+                      ? 'Please Remove Out of Stock Items'
+                      : `Place Order - ${formatPrice(finalTotal)}`}
               </button>
             </form>
           </div>
@@ -325,40 +553,102 @@ export default function CheckoutPage() {
             <div className="bg-white rounded-xl p-6 shadow-sm sticky top-8">
               <h3 className="text-lg font-semibold text-gray-900 mb-6">Order Summary</h3>
 
-              {/* Cart Items */}
-              <div className="space-y-4 mb-6">
-                {items.map((item) => (
-                  <div key={item.id} className="flex items-center space-x-3">
-                    <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
-                      <img
-                        src={item.images[0]}
-                        alt={item.name}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="text-sm font-medium text-gray-900 truncate">{item.name}</h4>
-                      <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
-                      {(item.size || item.color) && (
-                        <div className="flex items-center space-x-1 mt-1">
-                          {item.size && (
-                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                              {item.size}
-                            </span>
-                          )}
-                          {item.color && (
-                            <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
-                              {item.color}
-                            </span>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-sm font-medium text-gray-900">
-                      {formatPrice(item.price * item.quantity)}
+              {/* Stock Validation Loading */}
+              {isValidatingStock && (
+                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm text-blue-700 flex items-center">
+                    <span className="animate-spin mr-2">⏳</span>
+                    Verifying product availability...
+                  </p>
+                </div>
+              )}
+
+              {/* Stock Issues Alert */}
+              {!isValidatingStock && stockIssues.length > 0 && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                  <div className="flex items-start">
+                    <AlertTriangle className="w-5 h-5 text-red-600 mr-2 mt-0.5 flex-shrink-0" />
+                    <div className="flex-1">
+                      <h4 className="text-sm font-semibold text-red-900 mb-2">
+                        Stock Issues Detected
+                      </h4>
+                      <div className="space-y-2">
+                        {stockIssues.map((issue) => (
+                          <div key={issue.itemId} className="text-sm text-red-700">
+                            <p className="font-medium">{issue.productName}</p>
+                            <p className="text-xs">{issue.message}</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   </div>
-                ))}
+                </div>
+              )}
+
+              {/* Cart Items */}
+              <div className="space-y-4 mb-6">
+                {items.map((item) => {
+                  const issue = stockIssues.find(i => i.itemId === item.id);
+                  const isOutOfStock = issue?.issue === 'out_of_stock';
+
+                  return (
+                    <div
+                      key={item.id}
+                      className={`flex items-center space-x-3 p-3 rounded-lg ${isOutOfStock ? 'bg-red-50 border border-red-200' : issue ? 'bg-yellow-50 border border-yellow-200' : ''}`}
+                    >
+                      <div className="w-16 h-16 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0">
+                        <img
+                          src={item.images?.[0] || '/placeholder-product.jpg'}
+                          alt={item.name}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <h4 className="text-sm font-medium text-gray-900 truncate">{item.name}</h4>
+                            <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
+                            {(item.size || item.color) && (
+                              <div className="flex items-center space-x-1 mt-1">
+                                {item.size && (
+                                  <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                                    {item.size}
+                                  </span>
+                                )}
+                                {item.color && (
+                                  <span className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded">
+                                    {item.color}
+                                  </span>
+                                )}
+                              </div>
+                            )}
+                            {issue && (
+                              <p className={`text-xs mt-1 ${isOutOfStock ? 'text-red-600 font-medium' : 'text-yellow-700'}`}>
+                                {issue.message}
+                              </p>
+                            )}
+                            {item.maxQuantity !== undefined && !issue && (
+                              <p className="text-xs text-gray-500 mt-1">
+                                Stock: {item.maxQuantity} available
+                              </p>
+                            )}
+                          </div>
+                          {isOutOfStock && (
+                            <button
+                              onClick={() => handleRemoveItem(item.id)}
+                              className="ml-2 text-red-600 hover:text-red-800 text-xs font-medium"
+                            >
+                              Remove
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-sm font-medium text-gray-900">
+                        {formatPrice(item.price * item.quantity)}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               {/* Order Totals */}

@@ -14,6 +14,9 @@ export async function GET(request) {
     const category = searchParams.get('category');
     const featured = searchParams.get('featured');
     const search = searchParams.get('search');
+    const minPrice = searchParams.get('minPrice');
+    const maxPrice = searchParams.get('maxPrice');
+    const sortBy = searchParams.get('sortBy') || 'created-descending';
     const page = parseInt(searchParams.get('page')) || 1;
     const limit = parseInt(searchParams.get('limit')) || 10;
     const skip = (page - 1) * limit;
@@ -36,22 +39,123 @@ export async function GET(request) {
       query.$text = { $search: search };
     }
 
-    const products = await Product.find(query)
-      .populate('category', 'name slug')
-      .sort({ createdAt: -1 })
-      .skip(skip)
-      .limit(limit);
+    // Build sort object based on sortBy parameter
+    let sortObject = {};
+    switch (sortBy) {
+      case 'featured':
+        sortObject = { featured: -1, createdAt: -1 };
+        break;
+      case 'title-ascending':
+        sortObject = { name: 1 };
+        break;
+      case 'title-descending':
+        sortObject = { name: -1 };
+        break;
+      case 'price-ascending':
+        // Will sort by minimum variant price
+        sortObject = { createdAt: -1 }; // Default, will sort after fetching
+        break;
+      case 'price-descending':
+        // Will sort by maximum variant price
+        sortObject = { createdAt: -1 }; // Default, will sort after fetching
+        break;
+      case 'created-ascending':
+        sortObject = { createdAt: 1 };
+        break;
+      case 'created-descending':
+      default:
+        sortObject = { createdAt: -1 };
+        break;
+    }
 
-    const total = await Product.countDocuments(query);
+    let products = await Product.find(query)
+      .populate('category', 'name slug')
+      .sort(sortObject)
+      .skip(skip)
+      .limit(limit * 2); // Fetch more to handle price filtering
+
+    // Filter by price range if provided
+    if (minPrice || maxPrice) {
+      const min = minPrice ? parseFloat(minPrice) * 100 : 0; // Convert PKR to paisa
+      const max = maxPrice ? parseFloat(maxPrice) * 100 : Infinity;
+
+      products = products.filter(product => {
+        // Get minimum price from all variants
+        const prices = product.variants?.map(v => {
+          const variantPrice = (v.price || 0) * 100; // Convert PKR to paisa
+          const discount = v.discount || 0;
+          const finalPrice = discount > 0
+            ? variantPrice * (1 - discount / 100)
+            : variantPrice;
+          return finalPrice;
+        }) || [];
+
+        if (prices.length === 0) return false;
+        const minProductPrice = Math.min(...prices);
+        return minProductPrice >= min && minProductPrice <= max;
+      });
+    }
+
+    // Sort by price if needed (after filtering)
+    if (sortBy === 'price-ascending' || sortBy === 'price-descending') {
+      products.sort((a, b) => {
+        const getMinPrice = (product) => {
+          const prices = product.variants?.map(v => {
+            const variantPrice = (v.price || 0) * 100;
+            const discount = v.discount || 0;
+            return discount > 0 ? variantPrice * (1 - discount / 100) : variantPrice;
+          }) || [];
+          return prices.length > 0 ? Math.min(...prices) : 0;
+        };
+
+        const priceA = getMinPrice(a);
+        const priceB = getMinPrice(b);
+
+        return sortBy === 'price-ascending' ? priceA - priceB : priceB - priceA;
+      });
+    }
+
+    // Limit to requested number after filtering/sorting
+    products = products.slice(0, limit);
+
+    // Count total matching products (before price filter)
+    let totalQuery = { ...query };
+    let totalProducts = await Product.find(totalQuery);
+
+    // Apply price filter to count if needed
+    if (minPrice || maxPrice) {
+      const min = minPrice ? parseFloat(minPrice) * 100 : 0;
+      const max = maxPrice ? parseFloat(maxPrice) * 100 : Infinity;
+
+      totalProducts = totalProducts.filter(product => {
+        const prices = product.variants?.map(v => {
+          const variantPrice = (v.price || 0) * 100;
+          const discount = v.discount || 0;
+          const finalPrice = discount > 0
+            ? variantPrice * (1 - discount / 100)
+            : variantPrice;
+          return finalPrice;
+        }) || [];
+
+        if (prices.length === 0) return false;
+        const minProductPrice = Math.min(...prices);
+        return minProductPrice >= min && minProductPrice <= max;
+      });
+    }
+
+    const total = totalProducts.length;
+    const totalPages = Math.ceil(total / limit);
+    const hasMore = page < totalPages;
 
     return NextResponse.json(
       successResponse('Products fetched successfully', {
         products,
         pagination: {
           currentPage: page,
-          totalPages: Math.ceil(total / limit),
+          totalPages,
           totalItems: total,
-          itemsPerPage: limit
+          itemsPerPage: limit,
+          hasMore
         }
       }, 200),
       { status: 200 }

@@ -5,22 +5,40 @@ import Image from 'next/image';
 import { Plus, Minus, Trash2 } from 'lucide-react';
 import { useDispatch } from 'react-redux';
 import { updateQuantity, removeFromCart } from '@/redux/slices/Cart';
+import { toast } from 'sonner';
 
 export default function CartItems({ items }) {
     const dispatch = useDispatch();
 
     const formatPrice = (price) => {
-        return new Intl.NumberFormat('en-US', {
+        return new Intl.NumberFormat('en-PK', {
             style: 'currency',
-            currency: 'USD'
-        }).format(price);
+            currency: 'PKR',
+            minimumFractionDigits: 0,
+        }).format(price / 100); // Convert from paisa to PKR
     };
 
-    const handleQuantityChange = (id, newQuantity) => {
+    const handleQuantityChange = (item, newQuantity) => {
         if (newQuantity <= 0) {
-            dispatch(removeFromCart(id));
+            dispatch(removeFromCart(item.id));
         } else {
-            dispatch(updateQuantity({ id, quantity: newQuantity }));
+            const maxQuantity = item.maxQuantity || Infinity;
+            if (newQuantity > maxQuantity) {
+                toast.error('Stock Limit', {
+                    description: `Only ${maxQuantity} item(s) available. Stock has been reduced.`
+                });
+                dispatch(updateQuantity({
+                    id: item.id,
+                    quantity: maxQuantity,
+                    maxQuantity: maxQuantity
+                }));
+            } else {
+                dispatch(updateQuantity({
+                    id: item.id,
+                    quantity: newQuantity,
+                    maxQuantity: maxQuantity
+                }));
+            }
         }
     };
 
@@ -80,11 +98,20 @@ export default function CartItems({ items }) {
                                 </button>
                             </div>
 
+                            {/* Stock Info */}
+                            {item.maxQuantity !== undefined && (
+                                <p className={`text-xs mt-1 ${item.quantity >= item.maxQuantity ? 'text-red-600 font-medium' : 'text-gray-500'}`}>
+                                    {item.quantity >= item.maxQuantity
+                                        ? `Only ${item.maxQuantity} available (Stock reduced)`
+                                        : `${item.maxQuantity} available`}
+                                </p>
+                            )}
+
                             {/* Quantity Controls */}
                             <div className="flex items-center justify-between mt-4">
                                 <div className="flex items-center border border-border rounded-lg">
                                     <button
-                                        onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                                        onClick={() => handleQuantityChange(item, item.quantity - 1)}
                                         className="p-2 hover:bg-muted transition-colors"
                                     >
                                         <Minus className="w-4 h-4" />
@@ -93,8 +120,8 @@ export default function CartItems({ items }) {
                                         {item.quantity}
                                     </span>
                                     <button
-                                        onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
-                                        disabled={item.quantity >= item.stockCount}
+                                        onClick={() => handleQuantityChange(item, item.quantity + 1)}
+                                        disabled={item.maxQuantity !== undefined && item.quantity >= item.maxQuantity}
                                         className="p-2 hover:bg-muted transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         <Plus className="w-4 h-4" />

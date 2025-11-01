@@ -22,3 +22,10 @@ export const CATEGORY_ENDPOINTS = {
   UPDATE: (id) => `categories/${id}`,
   DELETE: (id) => `categories/${id}`,
 };
+
+export const ORDER_ENDPOINTS = {
+  GET_ALL: `orders`,
+  GET_BY_ID: (id) => `orders/${id}`,
+  CREATE: `orders`,
+  UPDATE: (id) => `orders/${id}`,
+};

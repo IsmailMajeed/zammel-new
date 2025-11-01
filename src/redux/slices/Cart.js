@@ -19,12 +19,25 @@ const cartSlice = createSlice({
             const product = action.payload;
             const existingItem = state.items.find(item => item.id === product.id);
 
+            // Check max quantity limit if provided
+            const maxQuantity = product.maxQuantity || Infinity;
+            const requestedQuantity = product.quantity || 1;
+
             if (existingItem) {
-                existingItem.quantity += 1;
+                const newQuantity = existingItem.quantity + requestedQuantity;
+                if (newQuantity > maxQuantity) {
+                    // Don't add if exceeds max quantity - let the UI handle the error message
+                    return;
+                }
+                existingItem.quantity = newQuantity;
             } else {
+                if (requestedQuantity > maxQuantity) {
+                    // Don't add if exceeds max quantity
+                    return;
+                }
                 state.items.push({
                     ...product,
-                    quantity: 1,
+                    quantity: requestedQuantity,
                     addedAt: new Date().toISOString()
                 });
             }
@@ -38,14 +51,16 @@ const cartSlice = createSlice({
         },
 
         updateQuantity: (state, action) => {
-            const { id, quantity } = action.payload;
+            const { id, quantity, maxQuantity } = action.payload;
             const item = state.items.find(item => item.id === id);
 
             if (item) {
                 if (quantity <= 0) {
                     state.items = state.items.filter(item => item.id !== id);
                 } else {
-                    item.quantity = quantity;
+                    // Check max quantity limit if provided
+                    const finalQuantity = maxQuantity ? Math.min(quantity, maxQuantity) : quantity;
+                    item.quantity = finalQuantity;
                 }
                 cartSlice.caseReducers.calculateTotals(state);
             }

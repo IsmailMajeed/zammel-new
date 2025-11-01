@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import Link from 'next/link';
 import { Menu as LucideMenu, Heart } from 'lucide-react';
 // Ant Design imports
@@ -22,37 +22,10 @@ import { openCart } from '@/redux/slices/Cart';
 import { openWishlist } from '@/redux/slices/Wishlist';
 import { logout as logoutAction } from '@/redux/slices/User';
 import { useLogoutMutation } from '@/redux/api/Auth';
+import { useGetCategoriesQuery } from '@/redux/api/Categories';
 import 'antd/dist/reset.css';
 import { useRouter } from 'next/navigation';
 import { BRAND } from '@/utils/brandConstants';
-
-const menuItems = [
-  {
-    key: '/',
-    icon: <HomeOutlined />,
-    label: <Link href="/">Home</Link>,
-  },
-  {
-    key: '/collections/hoodie',
-    icon: <AppstoreOutlined />,
-    label: <Link href="/collections/hoodie">Hoodies</Link>,
-  },
-  {
-    key: '/collections',
-    icon: <UnorderedListOutlined />,
-    label: <Link href="/collections">Collections</Link>,
-  },
-  {
-    key: '/about',
-    icon: <InfoCircleOutlined />,
-    label: <Link href="/about">About</Link>,
-  },
-  {
-    key: '/contact',
-    icon: <PhoneOutlined />,
-    label: <Link href="/contact">Contact</Link>,
-  },
-];
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -62,6 +35,54 @@ export default function Header() {
   const { user } = useSelector(state => state.user);
   const router = useRouter();
   const [triggerLogout] = useLogoutMutation();
+
+  // Fetch categories
+  const { data: categoriesData } = useGetCategoriesQuery({
+    status: 'active',
+    limit: 1000
+  });
+
+  const categories = categoriesData?.data?.categories || categoriesData?.data || [];
+
+  const menuItems = useMemo(() => {
+    const items = [
+      {
+        key: '/',
+        icon: <HomeOutlined />,
+        label: <Link href="/">Home</Link>,
+      },
+    ];
+
+    // Add categories to menu
+    categories.forEach((category) => {
+      items.push({
+        key: `/collections/${category.slug || category._id}`,
+        icon: <AppstoreOutlined />,
+        label: <Link href={`/collections/${category.slug || category._id}`}>{category.name}</Link>,
+      });
+    });
+
+    // Add static menu items
+    items.push(
+      {
+        key: '/collections',
+        icon: <UnorderedListOutlined />,
+        label: <Link href="/collections">All Collections</Link>,
+      },
+      {
+        key: '/about',
+        icon: <InfoCircleOutlined />,
+        label: <Link href="/about">About</Link>,
+      },
+      {
+        key: '/contact',
+        icon: <PhoneOutlined />,
+        label: <Link href="/contact">Contact</Link>,
+      }
+    );
+
+    return items;
+  }, [categories]);
 
   const handleAccountClick = () => {
     if (user) {
