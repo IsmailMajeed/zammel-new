@@ -32,7 +32,7 @@ const Wishlist = () => {
       style: 'currency',
       currency: 'PKR',
       minimumFractionDigits: 0,
-    }).format(price);
+    }).format(Math.round(price));
   };
 
   const handleRemoveItem = async (id) => {

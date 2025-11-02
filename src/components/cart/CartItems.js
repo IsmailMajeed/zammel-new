@@ -15,7 +15,7 @@ export default function CartItems({ items }) {
             style: 'currency',
             currency: 'PKR',
             minimumFractionDigits: 0,
-        }).format(price / 100); // Convert from paisa to PKR
+        }).format(Math.round(price));
     };
 
     const handleQuantityChange = (item, newQuantity) => {

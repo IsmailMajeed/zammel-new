@@ -20,6 +20,7 @@ import {
   removeFromCart,
   clearCart
 } from '@/redux/slices/Cart';
+import { useGetSettingsQuery } from '@/redux/api/Settings';
 import { toast } from 'sonner';
 
 const Cart = () => {
@@ -28,12 +29,16 @@ const Cart = () => {
   const dispatch = useDispatch();
   const { items, total, itemCount, isOpen } = useSelector(state => state.cart);
 
+  // Fetch settings for tax and shipping calculation
+  const { data: settingsData } = useGetSettingsQuery();
+  const settings = settingsData?.data?.settings;
+
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-PK', {
       style: 'currency',
       currency: 'PKR',
       minimumFractionDigits: 0,
-    }).format(price);
+    }).format(Math.round(price));
   };
 
   const handleQuantityChange = (id, newQuantity) => {
@@ -59,8 +64,48 @@ const Cart = () => {
   };
 
   const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
-  const shipping = subtotal > 50 ? 0 : 5.99;
-  const tax = subtotal * 0.08;
+
+  // Calculate tax based on settings
+  const calculateTax = () => {
+    if (!settings?.tax?.enabled) return 0;
+
+    const taxSettings = settings.tax;
+    if (taxSettings.type === 'percentage') {
+      // Subtotal is in PKR, value is percentage
+      return Math.round((subtotal * taxSettings.value) / 100);
+    } else {
+      // Fixed amount tax is in PKR
+      return Math.round(taxSettings.value || 0);
+    }
+  };
+
+  // Calculate shipping based on settings
+  const calculateShipping = () => {
+    if (!settings?.shipping?.enabled) return 0;
+
+    const shippingSettings = settings.shipping;
+
+    // Free shipping above threshold (both threshold and subtotal are in PKR)
+    if (shippingSettings.type === 'free_above' && shippingSettings.freeShippingAbove) {
+      const threshold = shippingSettings.freeShippingAbove || 0;
+      if (subtotal >= threshold) {
+        return 0;
+      }
+      // Shipping value is in PKR
+      return Math.round(shippingSettings.value || 0);
+    }
+
+    // Percentage based (value is percentage, subtotal is in PKR)
+    if (shippingSettings.type === 'percentage') {
+      return Math.round((subtotal * shippingSettings.value) / 100);
+    }
+
+    // Fixed amount (value is in PKR)
+    return Math.round(shippingSettings.value || 0);
+  };
+
+  const tax = calculateTax();
+  const shipping = calculateShipping();
   const finalTotal = subtotal + shipping + tax;
 
   return (
@@ -278,11 +323,13 @@ const Cart = () => {
                 </div>
 
                 {/* Free Shipping Notice */}
-                {subtotal < 50 && (
-                  <div className="text-center text-sm text-gray-500">
-                    Add {formatPrice(50 - subtotal)} more for free shipping!
-                  </div>
-                )}
+                {settings?.shipping?.type === 'free_above' &&
+                  settings?.shipping?.freeShippingAbove &&
+                  subtotal < settings.shipping.freeShippingAbove && (
+                    <div className="text-center text-sm text-gray-500">
+                      Add {formatPrice(settings.shipping.freeShippingAbove - subtotal)} more for free shipping!
+                    </div>
+                  )}
               </div>
             )}
           </motion.div>

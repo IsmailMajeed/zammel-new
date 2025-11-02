@@ -114,7 +114,11 @@ export async function POST(request) {
         continue;
       }
 
-      // Add validated item with updated price from variant
+      // Use price from frontend (already includes discount) if provided, otherwise use variant price
+      // Frontend sends the correct discounted price, so we use that
+      const itemPrice = item.price !== undefined ? item.price : productVariant.price;
+
+      // Add validated item with price from frontend (discounted price)
       validatedItems.push({
         productId: product._id,
         productName: item.productName || product.name,
@@ -123,7 +127,7 @@ export async function POST(request) {
           size: variant.size,
           sku: productVariant.sku
         },
-        price: productVariant.price, // Use current variant price
+        price: itemPrice, // Use price from frontend (includes discount), not variant price
         quantity: quantity,
         images: item.images || productVariant.images || []
       });
@@ -142,10 +146,10 @@ export async function POST(request) {
     }
 
     // Recalculate totals based on validated items
-    const recalculatedSubtotal = validatedItems.reduce(
+    const recalculatedSubtotal = Math.round(validatedItems.reduce(
       (sum, item) => sum + (item.price * item.quantity),
       0
-    );
+    ));
 
     // Calculate tax based on provided taxDetails (already calculated on frontend)
     // Use provided tax value if available, otherwise calculate from taxDetails
@@ -155,16 +159,16 @@ export async function POST(request) {
     // If taxDetails provided, we can recalculate for verification
     if (providedTaxDetails && providedTaxDetails.enabled) {
       if (providedTaxDetails.type === 'percentage') {
-        recalculatedTax = (recalculatedSubtotal * providedTaxDetails.value) / 100;
+        recalculatedTax = Math.round((recalculatedSubtotal * providedTaxDetails.value) / 100);
       } else {
-        recalculatedTax = providedTaxDetails.value || 0;
+        recalculatedTax = Math.round(providedTaxDetails.value || 0);
       }
     }
 
     // Use provided shipping value (already calculated on frontend)
-    const finalShipping = shipping || 0;
+    const finalShipping = Math.round(shipping || 0);
 
-    const recalculatedTotal = recalculatedSubtotal + finalShipping + recalculatedTax - (discount || 0);
+    const recalculatedTotal = Math.round(recalculatedSubtotal + finalShipping + recalculatedTax - (discount || 0));
 
     // Generate unique order number
     const timestamp = Date.now();

@@ -33,7 +33,7 @@ export default function CheckoutPage() {
   const [stockIssues, setStockIssues] = useState([]);
   const dispatch = useDispatch();
   const router = useRouter();
-  const { items, total, itemCount } = useSelector(state => state.cart);
+  const { items, total, itemCount, discount } = useSelector(state => state.cart);
   const { user } = useSelector(state => state.user);
   const [createOrder, { isLoading: isCreatingOrder }] = useCreateOrderMutation();
 
@@ -142,7 +142,7 @@ export default function CheckoutPage() {
       style: 'currency',
       currency: 'PKR',
       minimumFractionDigits: 0,
-    }).format(price / 100); // Convert from paisa to PKR
+    }).format(Math.round(price));
   };
 
   const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
@@ -153,9 +153,11 @@ export default function CheckoutPage() {
 
     const taxSettings = settings.tax;
     if (taxSettings.type === 'percentage') {
-      return (subtotal * taxSettings.value) / 100;
+      // Subtotal is in PKR, value is percentage
+      return Math.round((subtotal * taxSettings.value) / 100);
     } else {
-      return taxSettings.value;
+      // Fixed amount tax is in PKR
+      return Math.round(taxSettings.value || 0);
     }
   };
 
@@ -165,27 +167,34 @@ export default function CheckoutPage() {
 
     const shippingSettings = settings.shipping;
 
-    // Free shipping above threshold
+    // Free shipping above threshold (both threshold and subtotal are in PKR)
     if (shippingSettings.type === 'free_above' && shippingSettings.freeShippingAbove) {
-      const threshold = shippingSettings.freeShippingAbove;
+      const threshold = shippingSettings.freeShippingAbove || 0;
       if (subtotal >= threshold) {
         return 0;
       }
-      return shippingSettings.value || 0;
+      // Shipping value is in PKR
+      return Math.round(shippingSettings.value || 0);
     }
 
-    // Percentage based
+    // Percentage based (value is percentage, subtotal is in PKR)
     if (shippingSettings.type === 'percentage') {
-      return (subtotal * shippingSettings.value) / 100;
+      return Math.round((subtotal * shippingSettings.value) / 100);
     }
 
-    // Fixed amount
-    return shippingSettings.value || 0;
+    // Fixed amount (value is in PKR)
+    return Math.round(shippingSettings.value || 0);
   };
 
   const tax = calculateTax();
   const shipping = calculateShipping();
-  const finalTotal = subtotal + shipping + tax;
+
+  // Calculate discount amount (discount is percentage in cart, convert to actual PKR amount)
+  const discountAmount = discount > 0
+    ? Math.round((subtotal * discount) / 100)
+    : 0;
+
+  const finalTotal = subtotal + shipping + tax - discountAmount;
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -223,11 +232,12 @@ export default function CheckoutPage() {
     setIsProcessing(true);
 
     try {
-      // Prepare order items
+      // Prepare order items with prices (frontend already has discounted prices)
       const orderItems = items.map(item => ({
         productId: item.productId,
         productName: item.name,
         quantity: item.quantity,
+        price: item.price, // Send discounted price from frontend
         variant: {
           color: item.color || '',
           size: item.size || ''
@@ -278,13 +288,13 @@ export default function CheckoutPage() {
         items: orderItems,
         shippingAddress,
         paymentMethod: formData.paymentMethod,
-        subtotal: subtotal / 100, // Convert from paisa to PKR
-        shipping: shipping / 100, // Convert from paisa to PKR
-        tax: tax / 100, // Convert from paisa to PKR
+        subtotal: Math.round(subtotal), // Already in PKR
+        shipping: Math.round(shipping), // Already in PKR
+        tax: Math.round(tax), // Already in PKR
         taxDetails: taxDetails,
         shippingDetails: shippingDetails,
-        discount: 0,
-        total: finalTotal / 100, // Convert from paisa to PKR
+        discount: Math.round(discountAmount), // Discount amount in PKR
+        total: Math.round(finalTotal), // Already in PKR (with discount applied)
         userId: user?._id || null
       }).unwrap();
 
@@ -753,6 +763,12 @@ export default function CheckoutPage() {
                   <span className="text-gray-600">Tax</span>
                   <span className="text-gray-900">{formatPrice(tax)}</span>
                 </div>
+                {discountAmount > 0 && (
+                  <div className="flex justify-between text-sm text-green-600">
+                    <span>Discount ({discount}%)</span>
+                    <span>-{formatPrice(discountAmount)}</span>
+                  </div>
+                )}
                 <div className="border-t border-gray-200 pt-2">
                   <div className="flex justify-between font-semibold">
                     <span className="text-gray-900">Total</span>

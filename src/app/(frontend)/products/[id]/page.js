@@ -87,17 +87,25 @@ export default function ProductPage() {
   // Get price for current variant
   const currentPrice = useMemo(() => {
     if (currentVariant) {
-      const price = Math.round((currentVariant.price || 0) * 100); // Convert to paisa
-      return price;
+      // currentVariant.price is already in PKR (from raw backend data)
+      const originalPrice = currentVariant.price || 0;
+      const discount = currentVariant.discount || 0;
+
+      // Apply discount: final price = original * (1 - discount/100)
+      const finalPrice = discount > 0
+        ? Math.round(originalPrice * (1 - discount / 100))
+        : Math.round(originalPrice);
+
+      return finalPrice;
     }
-    return product?.price || 0;
+    return product?.price || 0; // product.price is already in PKR from transformer
   }, [currentVariant, product]);
 
-  // Get compare at price for current variant
+  // Get compare at price for current variant (original price before discount)
   const currentCompareAtPrice = useMemo(() => {
     if (currentVariant && currentVariant.discount > 0) {
-      const price = Math.round((currentVariant.price || 0) * 100);
-      return Math.round(price / (1 - currentVariant.discount / 100));
+      const originalPrice = currentVariant.price || 0;
+      return Math.round(originalPrice);
     }
     return product?.compareAtPrice || null;
   }, [currentVariant, product]);
@@ -107,7 +115,7 @@ export default function ProductPage() {
       style: 'currency',
       currency: 'PKR',
       minimumFractionDigits: 0,
-    }).format(price);
+    }).format(Math.round(price));
   };
 
   const { items: cartItems } = useSelector(state => state.cart);
@@ -288,15 +296,15 @@ export default function ProductPage() {
                   {currentCompareAtPrice && currentCompareAtPrice > currentPrice ? (
                     <>
                       <span className="text-2xl font-bold text-gray-900">
-                        {formatPrice(currentPrice / 100)}
+                        {formatPrice(currentPrice)}
                       </span>
                       <span className="text-lg text-gray-500 line-through">
-                        {formatPrice(currentCompareAtPrice / 100)}
+                        {formatPrice(currentCompareAtPrice)}
                       </span>
                     </>
                   ) : (
                     <span className="text-2xl font-bold text-gray-900">
-                      {formatPrice(currentPrice / 100)}
+                      {formatPrice(currentPrice)}
                     </span>
                   )}
                 </div>
@@ -546,11 +554,11 @@ export default function ProductPage() {
                     </h3>
                     <div className="flex items-center space-x-2 mt-1">
                       <span className="font-semibold text-gray-900">
-                        {formatPrice(relatedProduct.price / 100)}
+                        {formatPrice(relatedProduct.price)}
                       </span>
                       {relatedProduct.compareAtPrice && (
                         <span className="text-sm text-gray-500 line-through">
-                          {formatPrice(relatedProduct.compareAtPrice / 100)}
+                          {formatPrice(relatedProduct.compareAtPrice)}
                         </span>
                       )}
                     </div>

@@ -77,16 +77,16 @@ export async function GET(request) {
 
     // Filter by price range if provided
     if (minPrice || maxPrice) {
-      const min = minPrice ? parseFloat(minPrice) * 100 : 0; // Convert PKR to paisa
-      const max = maxPrice ? parseFloat(maxPrice) * 100 : Infinity;
+      const min = minPrice ? parseFloat(minPrice) : 0;
+      const max = maxPrice ? parseFloat(maxPrice) : Infinity;
 
       products = products.filter(product => {
         // Get minimum price from all variants
         const prices = product.variants?.map(v => {
-          const variantPrice = (v.price || 0) * 100; // Convert PKR to paisa
+          const variantPrice = v.price || 0; // Price is already in PKR
           const discount = v.discount || 0;
           const finalPrice = discount > 0
-            ? variantPrice * (1 - discount / 100)
+            ? Math.round(variantPrice * (1 - discount / 100))
             : variantPrice;
           return finalPrice;
         }) || [];
@@ -102,9 +102,11 @@ export async function GET(request) {
       products.sort((a, b) => {
         const getMinPrice = (product) => {
           const prices = product.variants?.map(v => {
-            const variantPrice = (v.price || 0) * 100;
+            const variantPrice = v.price || 0; // Price is already in PKR
             const discount = v.discount || 0;
-            return discount > 0 ? variantPrice * (1 - discount / 100) : variantPrice;
+            return discount > 0
+              ? Math.round(variantPrice * (1 - discount / 100))
+              : variantPrice;
           }) || [];
           return prices.length > 0 ? Math.min(...prices) : 0;
         };
@@ -125,15 +127,15 @@ export async function GET(request) {
 
     // Apply price filter to count if needed
     if (minPrice || maxPrice) {
-      const min = minPrice ? parseFloat(minPrice) * 100 : 0;
-      const max = maxPrice ? parseFloat(maxPrice) * 100 : Infinity;
+      const min = minPrice ? parseFloat(minPrice) : 0;
+      const max = maxPrice ? parseFloat(maxPrice) : Infinity;
 
       totalProducts = totalProducts.filter(product => {
         const prices = product.variants?.map(v => {
-          const variantPrice = (v.price || 0) * 100;
+          const variantPrice = v.price || 0; // Price is already in PKR
           const discount = v.discount || 0;
           const finalPrice = discount > 0
-            ? variantPrice * (1 - discount / 100)
+            ? Math.round(variantPrice * (1 - discount / 100))
             : variantPrice;
           return finalPrice;
         }) || [];

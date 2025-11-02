@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FaShoppingCart, FaEye, FaEdit, FaFilter, FaDownload, FaSearch, FaSpinner } from "react-icons/fa";
+import { FaEye, FaDownload, FaSearch, FaSpinner } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
-import Link from "next/link";
-import { useGetOrdersQuery, useUpdateOrderMutation } from "@/redux/api/Orders";
+import { useGetOrdersQuery } from "@/redux/api/Orders";
 import useDebounce from "@/hooks/useDebounce";
 import Swal from "sweetalert2";
 import { useRouter } from "next/navigation";
 import Pagination from "@/components/Pagination";
+import useRefetchOnWindowFocus from "@/hooks/useRefetchOnWindowFocus";
 
 const Input = ({ className, ...props }) => {
   return (
@@ -107,7 +107,8 @@ export default function OrdersListPage() {
     refetch,
   } = useGetOrdersQuery(queryParams);
 
-  const [updateOrder, { isLoading: isUpdatingOrder }] = useUpdateOrderMutation();
+  useRefetchOnWindowFocus(refetch);
+
   const [isExporting, setIsExporting] = useState(false);
 
   const orders = ordersData?.data?.orders || [];
@@ -170,100 +171,6 @@ export default function OrdersListPage() {
         {config.label}
       </span>
     );
-  };
-
-  const handleStatusUpdate = async (orderId, newStatus) => {
-    try {
-      const result = await Swal.fire({
-        title: "Update Order Status?",
-        text: `Are you sure you want to change the order status to "${newStatus}"?`,
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonColor: "#3085d6",
-        cancelButtonColor: "#d33",
-        confirmButtonText: "Yes, update it!",
-        cancelButtonText: "Cancel",
-      });
-
-      if (result.isConfirmed) {
-        Swal.fire({
-          title: "Updating...",
-          text: "Please wait",
-          allowOutsideClick: false,
-          didOpen: () => {
-            Swal.showLoading();
-          },
-        });
-
-        await updateOrder({
-          id: orderId,
-          orderStatus: newStatus,
-        }).unwrap();
-
-        Swal.fire({
-          title: "Updated!",
-          text: "Order status has been updated successfully.",
-          icon: "success",
-          timer: 2000,
-          showConfirmButton: false,
-        });
-
-        refetch();
-      }
-    } catch (error) {
-      Swal.fire({
-        title: "Error!",
-        text: error?.data?.message || "Failed to update order status",
-        icon: "error",
-      });
-    }
-  };
-
-  const handlePaymentStatusUpdate = async (orderId, newPaymentStatus) => {
-    try {
-      const result = await Swal.fire({
-        title: "Update Payment Status?",
-        text: `Are you sure you want to change the payment status to "${newPaymentStatus}"?`,
-        icon: "question",
-        showCancelButton: true,
-        confirmButtonColor: "#3085d6",
-        cancelButtonColor: "#d33",
-        confirmButtonText: "Yes, update it!",
-        cancelButtonText: "Cancel",
-      });
-
-      if (result.isConfirmed) {
-        Swal.fire({
-          title: "Updating...",
-          text: "Please wait",
-          allowOutsideClick: false,
-          didOpen: () => {
-            Swal.showLoading();
-          },
-        });
-
-        await updateOrder({
-          id: orderId,
-          paymentStatus: newPaymentStatus,
-        }).unwrap();
-
-        Swal.fire({
-          title: "Updated!",
-          text: "Payment status has been updated successfully.",
-          icon: "success",
-          timer: 2000,
-          showConfirmButton: false,
-        });
-
-        refetch();
-      }
-    } catch (error) {
-      Swal.fire({
-        title: "Error!",
-        text: error?.data?.message || "Failed to update payment status",
-        icon: "error",
-      });
-    }
   };
 
   const formatDate = (dateString) => {

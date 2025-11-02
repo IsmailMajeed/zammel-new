@@ -11,15 +11,17 @@ export function transformProductForFrontend(product) {
   const sizes = [...new Set(product.variants?.map(v => v.size).filter(Boolean) || [])];
   const colors = [...new Set(product.variants?.map(v => v.color).filter(Boolean) || [])];
 
-  // Calculate prices (backend stores price in PKR, frontend expects paisa)
-  const basePrice = firstVariant.price || 0;
-  const priceInPaisa = Math.round(basePrice * 100); // Convert PKR to paisa
-
-  // Calculate compareAtPrice (original price before discount)
+  // Calculate prices (backend stores price in PKR)
+  const basePrice = firstVariant.price || 0; // Original price from backend
   const discount = firstVariant.discount || 0;
-  const compareAtPriceInPaisa = discount > 0
-    ? Math.round(priceInPaisa / (1 - discount / 100))
-    : priceInPaisa;
+
+  // Apply discount to get final price: original * (1 - discount/100)
+  const finalPrice = discount > 0
+    ? Math.round(basePrice * (1 - discount / 100))
+    : Math.round(basePrice);
+
+  // CompareAtPrice is the original price (before discount)
+  const compareAtPrice = Math.round(basePrice);
 
   // Get images - use first variant's images or fallback
   const images = firstVariant.images || [];
@@ -37,8 +39,8 @@ export function transformProductForFrontend(product) {
   return {
     id: product._id || product.id,
     title: product.name,
-    price: priceInPaisa,
-    compareAtPrice: discount > 0 ? compareAtPriceInPaisa : null,
+    price: finalPrice,
+    compareAtPrice: discount > 0 ? compareAtPrice : null,
     discountPercentage: discount,
     image,
     hoverImage,
@@ -61,20 +63,28 @@ export function transformProductForDetail(product) {
   const transformed = transformProductForFrontend(product);
 
   // Add variant-specific data
-  transformed.variants = product.variants?.map(variant => ({
-    color: variant.color,
-    colorCode: variant.colorCode,
-    size: variant.size,
-    price: Math.round((variant.price || 0) * 100), // Convert to paisa
-    compareAtPrice: variant.discount > 0
-      ? Math.round((variant.price || 0) * 100 / (1 - variant.discount / 100))
-      : null,
-    discount: variant.discount || 0,
-    quantity: variant.quantity || 0,
-    sku: variant.sku,
-    images: variant.images || [],
-    available: (variant.quantity || 0) > 0
-  })) || [];
+  transformed.variants = product.variants?.map(variant => {
+    const originalPrice = variant.price || 0;
+    const discount = variant.discount || 0;
+
+    // Apply discount: final price = original * (1 - discount/100)
+    const finalPrice = discount > 0
+      ? Math.round(originalPrice * (1 - discount / 100))
+      : Math.round(originalPrice);
+
+    return {
+      color: variant.color,
+      colorCode: variant.colorCode,
+      size: variant.size,
+      price: finalPrice, // Final price after discount in PKR
+      compareAtPrice: discount > 0 ? Math.round(originalPrice) : null, // Original price in PKR
+      discount: discount,
+      quantity: variant.quantity || 0,
+      sku: variant.sku,
+      images: variant.images || [],
+      available: (variant.quantity || 0) > 0
+    };
+  }) || [];
 
   // Add features/tags
   transformed.features = product.tags || [];
