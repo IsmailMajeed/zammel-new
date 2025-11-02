@@ -1,11 +1,80 @@
 'use client'
 
-import React from "react";
-import { FaShoppingCart, FaBox, FaUsers, FaDollarSign, FaChartLine, FaEye, FaEdit, FaTrash } from "react-icons/fa";
+import React, { useEffect } from "react";
+import { FaShoppingCart, FaBox, FaUsers, FaDollarSign, FaChartLine, FaEye, FaSpinner } from "react-icons/fa";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useGetDashboardStatsQuery } from "@/redux/api/Dashboard";
+import { useRouter } from "next/navigation";
+import useRefetchOnWindowFocus from "@/hooks/useRefetchOnWindowFocus";
 
 export default function Home() {
+  const router = useRouter();
+  const { data: dashboardData, isLoading, error, refetch } = useGetDashboardStatsQuery();
+
+  useRefetchOnWindowFocus(refetch);
+
+  useEffect(() => {
+    refetch();
+  }, []);
+
+  const stats = dashboardData?.data?.stats || {
+    totalRevenue: 0,
+    totalOrders: 0,
+    pendingOrders: 0,
+    totalProducts: 0,
+    totalCustomers: 0,
+    recentOrders: []
+  };
+
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('en-PK', {
+      style: 'currency',
+      currency: 'PKR',
+      minimumFractionDigits: 0,
+    }).format(price);
+  };
+
+  const getStatusBadge = (status) => {
+    const statusConfig = {
+      pending: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Pending" },
+      processing: { bg: "bg-blue-100", text: "text-blue-800", label: "Processing" },
+      shipped: { bg: "bg-purple-100", text: "text-purple-800", label: "Shipped" },
+      completed: { bg: "bg-green-100", text: "text-green-800", label: "Completed" },
+      cancelled: { bg: "bg-red-100", text: "text-red-800", label: "Cancelled" }
+    };
+
+    const config = statusConfig[status] || statusConfig.pending;
+    return (
+      <span className={`px-2 py-1 rounded-full text-xs font-medium ${config.bg} ${config.text}`}>
+        {config.label}
+      </span>
+    );
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <FaSpinner className="animate-spin mx-auto text-4xl text-primary mb-4" />
+          <p className="text-mutedForeground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <p className="text-red-500">Failed to load dashboard</p>
+          <p className="text-sm text-mutedForeground mt-2">
+            {error?.data?.message || "Please try again later"}
+          </p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="space-y-5">
       {/* Stats Cards */}
@@ -19,13 +88,12 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-cardForeground/60">Total Revenue</p>
-              <h3 className="text-2xl font-bold mt-1">₨24,567</h3>
+              <h3 className="text-2xl font-bold mt-1">{formatPrice(stats.totalRevenue || 0)}</h3>
             </div>
             <FaDollarSign className="text-3xl text-primary" />
           </div>
           <div className="mt-4">
-            <span className="text-green-500 text-sm">↑ 18%</span>
-            <span className="text-sm text-cardForeground/60 ml-1">vs last month</span>
+            <span className="text-sm text-cardForeground/60">Paid Orders</span>
           </div>
         </motion.div>
 
@@ -38,13 +106,12 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-cardForeground/60">Total Orders</p>
-              <h3 className="text-2xl font-bold mt-1">1,234</h3>
+              <h3 className="text-2xl font-bold mt-1">{stats.totalOrders || 0}</h3>
             </div>
             <FaShoppingCart className="text-3xl text-primary" />
           </div>
           <div className="mt-4">
-            <span className="text-green-500 text-sm">↑ 12%</span>
-            <span className="text-sm text-cardForeground/60 ml-1">vs last month</span>
+            <span className="text-orange-500 text-sm">{stats.pendingOrders || 0} Pending</span>
           </div>
         </motion.div>
 
@@ -57,13 +124,12 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-cardForeground/60">Total Products</p>
-              <h3 className="text-2xl font-bold mt-1">456</h3>
+              <h3 className="text-2xl font-bold mt-1">{stats.totalProducts || 0}</h3>
             </div>
             <FaBox className="text-3xl text-primary" />
           </div>
           <div className="mt-4">
-            <span className="text-green-500 text-sm">↑ 8%</span>
-            <span className="text-sm text-cardForeground/60 ml-1">vs last month</span>
+            <span className="text-sm text-cardForeground/60">Active Products</span>
           </div>
         </motion.div>
 
@@ -76,91 +142,18 @@ export default function Home() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-cardForeground/60">Total Customers</p>
-              <h3 className="text-2xl font-bold mt-1">2,890</h3>
+              <h3 className="text-2xl font-bold mt-1">{stats.totalCustomers || 0}</h3>
             </div>
             <FaUsers className="text-3xl text-primary" />
           </div>
           <div className="mt-4">
-            <span className="text-green-500 text-sm">↑ 15%</span>
-            <span className="text-sm text-cardForeground/60 ml-1">vs last month</span>
+            <span className="text-sm text-cardForeground/60">Registered Users</span>
           </div>
         </motion.div>
       </div>
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Chart */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-          className="bg-cardBackground p-6 rounded-lg shadow"
-        >
-          <h2 className="text-xl font-semibold mb-4">Revenue Overview</h2>
-          <div className="h-64 flex items-center justify-center">
-            <div className="text-center">
-              <FaChartLine className="text-6xl text-primary/20 mx-auto mb-4" />
-              <p className="text-cardForeground/60">Chart will be implemented here</p>
-            </div>
-          </div>
-        </motion.div>
-
-        {/* Top Products */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6 }}
-          className="bg-cardBackground p-6 rounded-lg shadow"
-        >
-          <h2 className="text-xl font-semibold mb-4">Top Selling Products</h2>
-          <div className="space-y-3">
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
-                  <FaBox className="text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Wireless Headphones</p>
-                  <p className="text-sm text-cardForeground/60">Electronics</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-bold">₨299</p>
-                <p className="text-sm text-green-600">156 sold</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
-                  <FaBox className="text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Smart Watch</p>
-                  <p className="text-sm text-cardForeground/60">Electronics</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-bold">₨199</p>
-                <p className="text-sm text-green-600">98 sold</p>
-              </div>
-            </div>
-            <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-              <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-primary/20 rounded-lg flex items-center justify-center">
-                  <FaBox className="text-primary" />
-                </div>
-                <div>
-                  <p className="font-medium">Laptop Stand</p>
-                  <p className="text-sm text-cardForeground/60">Accessories</p>
-                </div>
-              </div>
-              <div className="text-right">
-                <p className="font-bold">₨49</p>
-                <p className="text-sm text-green-600">87 sold</p>
-              </div>
-            </div>
-          </div>
-        </motion.div>
       </div>
 
       {/* Recent Orders */}
@@ -189,57 +182,36 @@ export default function Home() {
               </tr>
             </thead>
             <tbody>
-              <tr className="border-b border-cardForeground/10">
-                <td className="py-3 px-4 font-mono text-sm">#ORD-001</td>
-                <td className="py-3 px-4">Ahmed Khan</td>
-                <td className="py-3 px-4">3 items</td>
-                <td className="py-3 px-4">₨299.00</td>
-                <td className="py-3 px-4"><span className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded-full text-sm">Pending</span></td>
-                <td className="py-3 px-4">
-                  <div className="flex space-x-2">
-                    <button className="text-blue-600 hover:text-blue-800">
-                      <FaEye />
-                    </button>
-                    <button className="text-green-600 hover:text-green-800">
-                      <FaEdit />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              <tr className="border-b border-cardForeground/10">
-                <td className="py-3 px-4 font-mono text-sm">#ORD-002</td>
-                <td className="py-3 px-4">Sara Ali</td>
-                <td className="py-3 px-4">1 item</td>
-                <td className="py-3 px-4">₨199.00</td>
-                <td className="py-3 px-4"><span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-sm">Completed</span></td>
-                <td className="py-3 px-4">
-                  <div className="flex space-x-2">
-                    <button className="text-blue-600 hover:text-blue-800">
-                      <FaEye />
-                    </button>
-                    <button className="text-green-600 hover:text-green-800">
-                      <FaEdit />
-                    </button>
-                  </div>
-                </td>
-              </tr>
-              <tr className="border-b border-cardForeground/10">
-                <td className="py-3 px-4 font-mono text-sm">#ORD-003</td>
-                <td className="py-3 px-4">Mohammad Usman</td>
-                <td className="py-3 px-4">2 items</td>
-                <td className="py-3 px-4">₨148.00</td>
-                <td className="py-3 px-4"><span className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">Shipped</span></td>
-                <td className="py-3 px-4">
-                  <div className="flex space-x-2">
-                    <button className="text-blue-600 hover:text-blue-800">
-                      <FaEye />
-                    </button>
-                    <button className="text-green-600 hover:text-green-800">
-                      <FaEdit />
-                    </button>
-                  </div>
-                </td>
-              </tr>
+              {stats.recentOrders && stats.recentOrders.length > 0 ? (
+                stats.recentOrders.map((order) => (
+                  <tr key={order._id} className="border-b border-cardForeground/10">
+                    <td className="py-3 px-4 font-mono text-sm">{order.orderNumber}</td>
+                    <td className="py-3 px-4">
+                      <div>
+                        <p className="font-medium">{order.customerName}</p>
+                        <p className="text-xs text-cardForeground/60">{order.customerEmail}</p>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">{order.itemsCount} item{order.itemsCount !== 1 ? 's' : ''}</td>
+                    <td className="py-3 px-4 font-bold">{formatPrice(order.total || 0)}</td>
+                    <td className="py-3 px-4">{getStatusBadge(order.orderStatus)}</td>
+                    <td className="py-3 px-4">
+                      <button
+                        onClick={() => router.push(`/admin/orders/${order._id}`)}
+                        className="text-blue-600 hover:text-blue-800"
+                      >
+                        <FaEye />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              ) : (
+                <tr>
+                  <td colSpan={6} className="py-8 text-center text-cardForeground/60">
+                    No recent orders
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>

@@ -1,6 +1,7 @@
 import axios from "axios";
 import { toast } from "sonner";
-import { accessKey, adminAccessKey } from "./constants";
+import { accessKey } from "./constants";
+import Swal from "sweetalert2";
 
 // Create axios instance with default config
 const axiosInstance = axios.create({
@@ -67,9 +68,7 @@ export const clearPendingQueue = () => requestQueue.clear();
 axiosInstance.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
-      const isAdminApi = typeof config.url === 'string' && config.url.includes('/admin');
-      const tokenKey = isAdminApi ? adminAccessKey : accessKey;
-      const token = localStorage.getItem(tokenKey);
+      const token = localStorage.getItem(accessKey);
       if (token) {
         if (!config.headers) config.headers = {};
         config.headers.Authorization = `Bearer ${token}`;
@@ -98,23 +97,13 @@ axiosInstance.interceptors.response.use(
 
       if (typeof window !== 'undefined') {
         const currentPath = window.location.pathname;
-        const publicPaths = ["/auth/login", "/auth/register", "/", "/auth/admin/login"];
-
-        // If we are on admin login page, don't redirect; let UI show error
-        if (currentPath.startsWith('/auth/admin')) {
-          return Promise.reject(error);
-        }
+        const publicPaths = ["/auth/login"];
 
         if (!publicPaths.includes(currentPath)) {
-          // Clear token(s) and redirect based on area
-          const isInAdminArea = currentPath.startsWith('/admin');
-          if (isInAdminArea) {
-            localStorage.removeItem(adminAccessKey);
-            window.location.href = "/auth/admin/login";
-          } else {
-            localStorage.removeItem(accessKey);
-            window.location.href = "/auth/login";
-          }
+          // Clear token from localStorage
+          localStorage.removeItem(accessKey);
+          // Redirect to login page
+          window.location.href = "/auth/login";
           return Promise.reject(error);
         }
       }
@@ -163,10 +152,11 @@ export const axiosBaseQuery =
         const hasFile =
           body &&
           typeof body === "object" &&
-          (Object.values(body).some &&
-            Object.values(body).some(
-              (value) => typeof File !== "undefined" && value instanceof File
-            ));
+          (body.image ||
+            (Object.values(body).some &&
+              Object.values(body).some(
+                (value) => typeof File !== "undefined" && value instanceof File
+              )));
 
         // Set content type based on data
         const contentType =
@@ -246,6 +236,7 @@ export const axiosBaseQuery =
         const error = axiosError;
         const status = error && error.response && error.response.status;
         const errorData = error && error.response && error.response.data;
+        const errorList = errorData && errorData.errors;
 
         console.error(`❌ API Error: ${method} ${fullUrl}`, {
           status,
@@ -270,6 +261,19 @@ export const axiosBaseQuery =
           // Don't show toast for 401 errors (handled by interceptor)
           if (status !== 401) {
             toast.error(errorMessage);
+          }
+
+          if (errorList) {
+            Swal.fire({
+              title: errorMessage,
+              html: `
+              <ul style="text-align:left; margin:0; padding-left:1.2em; list-style-type:disc;">
+                ${errorList.map(item => `<li style="margin-bottom:6px; list-style-type:disc;">${item}</li>`).join('')}
+              </ul>
+            `,
+              icon: "error",
+              confirmButtonColor: "#031624"
+            });
           }
         }
 

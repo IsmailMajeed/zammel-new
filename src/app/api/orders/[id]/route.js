@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/authMiddleware';
 import { connectToDb } from '@/lib/mongodb';
 import Order from '@/models/Order';
 import User from '@/models/User'; // Import User model to ensure it's registered
@@ -38,8 +39,8 @@ export async function GET(request, { params }) {
   }
 }
 
-// PUT update order status
-export async function PUT(request, { params }) {
+// PUT update order status (Admin only)
+export const PUT = requireAdmin(async (request, { params }) => {
   try {
     await connectToDb();
 
@@ -85,5 +86,5 @@ export async function PUT(request, { params }) {
     const message = err?.message || 'Failed to update order';
     return NextResponse.json(errorResponse(message, 500), { status: 500 });
   }
-}
+});
 

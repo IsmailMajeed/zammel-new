@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import { Eye, EyeOff, Mail, Lock, Shield } from 'lucide-react';
 import { BRAND } from '@/utils/brandConstants';
 import { toast } from 'sonner';
+import { accessKey } from '@/utils/constants';
 
 export default function AdminLoginPage() {
   const [email, setEmail] = useState('');
@@ -17,7 +18,8 @@ export default function AdminLoginPage() {
   const [adminLogin, { isLoading }] = useAdminLoginMutation();
   const dispatch = useDispatch();
   const router = useRouter();
-  const { user, token } = useSelector((state) => state.adminUser);
+  const { user } = useSelector((state) => state.adminUser);
+  const token = window.localStorage.getItem(accessKey);
 
   useEffect(() => {
     if (token && user?.isAdmin) {

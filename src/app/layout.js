@@ -15,12 +15,12 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata = {
-  title: "Mettwear - Premium Hoodies Collection | First Check Then Pay",
+  title: "ZAMMEL - Premium Hoodies Collection | First Check Then Pay",
   description: "First in Pakistan to offer open parcel delivery. Premium quality hoodies with first check then pay policy. Shop our exclusive collection of comfortable and stylish hoodies.",
   keywords: "hoodies, pakistan, premium clothing, mettwear, first check then pay, comfortable hoodies, stylish clothing",
-  authors: [{ name: "Mettwear" }],
-  creator: "Mettwear",
-  publisher: "Mettwear",
+  authors: [{ name: "ZAMMEL" }],
+  creator: "ZAMMEL",
+  publisher: "ZAMMEL",
   robots: {
     index: true,
     follow: true,
@@ -36,21 +36,21 @@ export const metadata = {
     type: "website",
     locale: "en_US",
     url: "https://mettwear.com",
-    siteName: "Mettwear",
-    title: "Mettwear - Premium Hoodies Collection | First Check Then Pay",
+    siteName: "ZAMMEL",
+    title: "ZAMMEL - Premium Hoodies Collection | First Check Then Pay",
     description: "First in Pakistan to offer open parcel delivery. Premium quality hoodies with first check then pay policy.",
     images: [
       {
         url: "https://mettwear.com/cdn/shop/files/PO2_Hoodie.jpg?v=1730314234",
         width: 1200,
         height: 630,
-        alt: "Mettwear Premium Hoodies",
+        alt: "ZAMMEL Premium Hoodies",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Mettwear - Premium Hoodies Collection",
+    title: "ZAMMEL - Premium Hoodies Collection",
     description: "First in Pakistan to offer open parcel delivery. Premium quality hoodies.",
     images: ["https://mettwear.com/cdn/shop/files/PO2_Hoodie.jpg?v=1730314234"],
   },
@@ -73,7 +73,7 @@ export default function RootLayout({ children }) {
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "Organization",
-              "name": "Mettwear",
+              "name": "ZAMMEL",
               "url": "https://mettwear.com",
               "logo": "https://mettwear.com/cdn/shop/files/PO2_Hoodie.jpg?v=1730314234",
               "description": "First in Pakistan to offer open parcel delivery. Premium quality hoodies with first check then pay policy.",

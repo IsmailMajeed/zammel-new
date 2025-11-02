@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/authMiddleware';
 import { connectToDb } from '@/lib/mongodb';
 import Category from '@/models/Category';
 import Product from '@/models/Product';
@@ -36,10 +37,10 @@ export async function GET(request, { params }) {
     const message = err?.message || 'Failed to fetch category';
     return NextResponse.json(errorResponse(message, 500), { status: 500 });
   }
-}
+};
 
 // PUT update category by ID
-export async function PUT(request, { params }) {
+export const PUT = requireAdmin(async (request, { params }) => {
   try {
     // Handle params - can be sync (Next.js 14) or async (Next.js 15+)
     const resolvedParams = params instanceof Promise ? await params : params;
@@ -127,10 +128,10 @@ export async function PUT(request, { params }) {
     const message = err?.message || 'Failed to update category';
     return NextResponse.json(errorResponse(message, 500), { status: 500 });
   }
-}
+});
 
 // DELETE category by ID
-export async function DELETE(request, { params }) {
+export const DELETE = requireAdmin(async (request, { params }) => {
   try {
     // Handle params - can be sync (Next.js 14) or async (Next.js 15+)
     const resolvedParams = params instanceof Promise ? await params : params;
@@ -183,4 +184,4 @@ export async function DELETE(request, { params }) {
     const message = err?.message || 'Failed to delete category';
     return NextResponse.json(errorResponse(message, 500), { status: 500 });
   }
-}
+});

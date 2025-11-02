@@ -8,6 +8,7 @@ import { productsApi } from "./api/Products";
 import { categoriesApi } from "./api/Categories";
 import { ordersApi } from "./api/Orders";
 import { settingsApi } from "./api/Settings";
+import { dashboardApi } from "./api/Dashboard";
 import userReducer from "./slices/User";
 import adminUserReducer from "./slices/AdminUser";
 import cartReducer from "./slices/Cart";
@@ -21,7 +22,7 @@ const persistConfig = {
   key: "root",
   storage,
   whitelist: ["user", "adminUser", "cart", "wishlist"], // Only persist these slices
-  blacklist: ["authApi", "productsApi", "categoriesApi", "ordersApi", "settingsApi"], // Don't persist API cache
+  blacklist: ["authApi", "productsApi", "categoriesApi", "ordersApi", "settingsApi", "dashboardApi"], // Don't persist API cache
 };
 
 const rootReducer = combineReducers({
@@ -37,6 +38,7 @@ const rootReducer = combineReducers({
   [categoriesApi.reducerPath]: categoriesApi.reducer,
   [ordersApi.reducerPath]: ordersApi.reducer,
   [settingsApi.reducerPath]: settingsApi.reducer,
+  [dashboardApi.reducerPath]: dashboardApi.reducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -54,6 +56,7 @@ const store = configureStore({
       categoriesApi.middleware,
       ordersApi.middleware,
       settingsApi.middleware,
+      dashboardApi.middleware,
     ),
 });
 

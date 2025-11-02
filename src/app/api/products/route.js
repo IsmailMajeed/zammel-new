@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/authMiddleware';
 import { connectToDb } from '@/lib/mongodb';
 import Product from '@/models/Product';
 import Category from '@/models/Category';
@@ -167,7 +168,7 @@ export async function GET(request) {
 }
 
 // POST create new product
-export async function POST(request) {
+export const POST = requireAdmin(async (request) => {
   try {
     const body = await request.json();
     const { name, description, category, variants, status, featured, tags } = body || {};
@@ -237,4 +238,4 @@ export async function POST(request) {
     const message = err?.message || 'Failed to create product';
     return NextResponse.json(errorResponse(message, 500), { status: 500 });
   }
-}
+});

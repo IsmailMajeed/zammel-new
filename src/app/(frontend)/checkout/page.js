@@ -21,7 +21,7 @@ export default function CheckoutPage() {
     address: '',
     city: '',
     postalCode: '',
-    paymentMethod: 'card',
+    paymentMethod: 'cod',
     cardNumber: '',
     expiryDate: '',
     cvv: '',
@@ -517,7 +517,8 @@ export default function CheckoutPage() {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Payment Method</label>
                     <div className="space-y-3">
-                      <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
+                      {/* Card payment option commented out for now */}
+                      {/* <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                         <input
                           type="radio"
                           name="paymentMethod"
@@ -528,7 +529,7 @@ export default function CheckoutPage() {
                         />
                         <CreditCard className="w-5 h-5 mr-2 text-gray-600" />
                         <span className="text-gray-900">Credit/Debit Card</span>
-                      </label>
+                      </label> */}
                       <label className="flex items-center p-3 border border-gray-300 rounded-lg cursor-pointer hover:bg-gray-50">
                         <input
                           type="radio"

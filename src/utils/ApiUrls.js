@@ -34,3 +34,7 @@ export const SETTINGS_ENDPOINTS = {
   GET: `settings`,
   UPDATE: `settings`,
 };
+
+export const DASHBOARD_ENDPOINTS = {
+  GET_STATS: `dashboard`,
+};

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { requireAdmin } from '@/lib/authMiddleware';
 import { connectToDb } from '@/lib/mongodb';
 import Category from '@/models/Category';
 import { successResponse, errorResponse } from '@/utils/responses';
@@ -62,7 +63,7 @@ export async function GET(request) {
 }
 
 // POST create new category
-export async function POST(request) {
+export const POST = requireAdmin(async (request) => {
   try {
     let body;
     try {
@@ -138,4 +139,4 @@ export async function POST(request) {
     const message = err?.message || 'Failed to create category';
     return NextResponse.json(errorResponse(message, 500), { status: 500 });
   }
-}
+});

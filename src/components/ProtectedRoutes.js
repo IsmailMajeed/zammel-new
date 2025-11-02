@@ -3,9 +3,11 @@
 import { useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { useRouter } from 'next/navigation';
+import { accessKey } from '@/utils/constants';
 
 export default function ProtectedRoutes({ children, requireAdmin = false, redirectTo = '/auth/admin/login' }) {
-  const { user, token } = useSelector((state) => requireAdmin ? state.adminUser : state.user);
+  const token = window.localStorage.getItem(accessKey);
+  const { user } = useSelector((state) => requireAdmin ? state.adminUser : state.user);
   const router = useRouter();
 
   useEffect(() => {

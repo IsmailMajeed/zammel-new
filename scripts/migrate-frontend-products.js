@@ -8,16 +8,7 @@
  */
 
 import mongoose from 'mongoose';
-import dotenv from 'dotenv';
-import { fileURLToPath } from 'url';
-import { dirname, join } from 'path';
-import { readFileSync } from 'fs';
-
-// Load environment variables
-dotenv.config({ path: join(process.cwd(), '.env') });
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
+import 'dotenv/config';
 
 // Connect to MongoDB
 const MONGODB_URI = process.env.MONGODB_URI;
@@ -312,6 +303,8 @@ async function migrateProducts() {
 
     // Connect to database
     await mongoose.connect(MONGODB_URI, {
+      dbName: "ZAMMEL"
+    }, {
       autoIndex: true,
     });
     console.log('✅ Connected to database\n');

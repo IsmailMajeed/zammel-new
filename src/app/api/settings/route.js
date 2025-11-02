@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { connectToDb } from '@/lib/mongodb';
 import Settings from '@/models/Settings';
 import { successResponse, errorResponse } from '@/utils/responses';
+import { requireAdmin } from '@/lib/authMiddleware';
 
 // GET settings
 export async function GET(request) {
@@ -21,8 +22,8 @@ export async function GET(request) {
   }
 }
 
-// PUT update settings
-export async function PUT(request) {
+// PUT update settings (Admin only)
+export const PUT = requireAdmin(async (request) => {
   try {
     await connectToDb();
 
@@ -102,5 +103,5 @@ export async function PUT(request) {
     const message = err?.message || 'Failed to update settings';
     return NextResponse.json(errorResponse(message, 500), { status: 500 });
   }
-}
+});
 

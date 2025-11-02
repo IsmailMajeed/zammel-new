@@ -1,6 +1,7 @@
 import mongoose from 'mongoose';
 
 const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_DB = "ZAMMEL"
 
 if (!MONGODB_URI) {
   throw new Error('MONGODB_URI is not set');
@@ -15,6 +16,8 @@ export async function connectToDb() {
   if (cached.conn) return cached.conn;
   if (!cached.promise) {
     cached.promise = mongoose.connect(MONGODB_URI, {
+      dbName: MONGODB_DB
+    }, {
       autoIndex: true,
     }).then((mongooseInstance) => mongooseInstance);
   }
