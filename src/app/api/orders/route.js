@@ -4,6 +4,36 @@ import Order from '@/models/Order';
 import Product from '@/models/Product';
 import User from '@/models/User'; // Import User model to ensure it's registered
 import { successResponse, errorResponse } from '@/utils/responses';
+import jwt from 'jsonwebtoken';
+
+// Helper function to extract user ID from JWT token in authorization header
+function getUserIdFromAuthHeader(request) {
+  try {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return null;
+    }
+
+    const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+    if (!token) {
+      return null;
+    }
+
+    const decoded = jwt.verify(
+      token,
+      process.env.JWT_SECRET || 'dev_secret'
+    );
+
+    // Return user ID if token is valid and user is not admin (regular customer)
+    if (decoded && decoded.sub && !decoded.isAdmin) {
+      return decoded.sub;
+    }
+
+    return null;
+  } catch (error) {
+    return null;
+  }
+}
 
 // Helper function to get variant by color and size (since we're in API route)
 function getVariantByColorAndSize(product, color, size) {
@@ -29,8 +59,13 @@ export async function POST(request) {
       tax,
       discount,
       total,
-      userId = null
+      userId: bodyUserId = null
     } = body;
+
+    // Automatically extract user ID from JWT token if user is logged in
+    // This ensures logged-in users are always associated with their orders
+    const tokenUserId = getUserIdFromAuthHeader(request);
+    const userId = tokenUserId || bodyUserId; // Prioritize token-extracted user ID for security
 
     // Validate required fields
     if (!items || !Array.isArray(items) || items.length === 0) {

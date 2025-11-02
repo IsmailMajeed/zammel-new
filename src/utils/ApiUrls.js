@@ -38,3 +38,8 @@ export const SETTINGS_ENDPOINTS = {
 export const DASHBOARD_ENDPOINTS = {
   GET_STATS: `dashboard`,
 };
+
+export const CUSTOMER_ENDPOINTS = {
+  GET_ALL: `customers`,
+  GET_BY_ID: (id) => `customers/${id}`,
+};

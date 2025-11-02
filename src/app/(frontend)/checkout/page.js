@@ -295,7 +295,7 @@ export default function CheckoutPage() {
         shippingDetails: shippingDetails,
         discount: Math.round(discountAmount), // Discount amount in PKR
         total: Math.round(finalTotal), // Already in PKR (with discount applied)
-        userId: user?._id || null
+        userId: user?.id || null // Will be overridden by token-extracted user ID if logged in
       }).unwrap();
 
       // Success

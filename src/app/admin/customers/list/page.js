@@ -1,9 +1,15 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FaUsers, FaEye, FaEdit, FaFilter, FaDownload, FaSearch, FaEnvelope, FaPhone, FaMapMarkerAlt } from "react-icons/fa";
+import { FaUsers, FaEye, FaEdit, FaFilter, FaDownload, FaSearch, FaEnvelope, FaPhone, FaMapMarkerAlt, FaSpinner } from "react-icons/fa";
 import { motion, AnimatePresence } from "framer-motion";
 import Link from "next/link";
+import { useGetCustomersQuery } from "@/redux/api/Customers";
+import useDebounce from "@/hooks/useDebounce";
+import Pagination from "@/components/Pagination";
+import useRefetchOnWindowFocus from "@/hooks/useRefetchOnWindowFocus";
+import Swal from "sweetalert2";
+import { accessKey } from "@/utils/constants";
 
 const Input = ({ className, ...props }) => {
   return (
@@ -77,115 +83,58 @@ const TableCell = ({ children, className, ...props }) => {
 };
 
 export default function CustomersListPage() {
-  const [customers, setCustomers] = useState([
-    {
-      id: 1,
-      name: "Ahmed Khan",
-      email: "ahmed@example.com",
-      phone: "+92 300 1234567",
-      address: "123 Main Street, Block A, DHA Phase 5, Karachi, Pakistan",
-      city: "Karachi",
-      country: "Pakistan",
-      status: "active",
-      totalOrders: 12,
-      totalSpent: 125000,
-      lastOrder: "2024-01-15T10:30:00Z",
-      joinDate: "2023-06-15T08:00:00Z",
-      avatar: "/api/placeholder/40/40"
-    },
-    {
-      id: 2,
-      name: "Sara Ali",
-      email: "sara@example.com",
-      phone: "+92 301 2345678",
-      address: "456 Park Avenue, Gulberg, Lahore, Pakistan",
-      city: "Lahore",
-      country: "Pakistan",
-      status: "active",
-      totalOrders: 8,
-      totalSpent: 85000,
-      lastOrder: "2024-01-14T14:20:00Z",
-      joinDate: "2023-08-22T10:30:00Z",
-      avatar: "/api/placeholder/40/40"
-    },
-    {
-      id: 3,
-      name: "Mohammad Usman",
-      email: "usman@example.com",
-      phone: "+92 302 3456789",
-      address: "789 Garden Road, F-8, Islamabad, Pakistan",
-      city: "Islamabad",
-      country: "Pakistan",
-      status: "active",
-      totalOrders: 15,
-      totalSpent: 180000,
-      lastOrder: "2024-01-13T16:45:00Z",
-      joinDate: "2023-05-10T12:15:00Z",
-      avatar: "/api/placeholder/40/40"
-    },
-    {
-      id: 4,
-      name: "Fatima Sheikh",
-      email: "fatima@example.com",
-      phone: "+92 303 4567890",
-      address: "321 Oak Street, Model Town, Faisalabad, Pakistan",
-      city: "Faisalabad",
-      country: "Pakistan",
-      status: "inactive",
-      totalOrders: 3,
-      totalSpent: 25000,
-      lastOrder: "2023-12-20T09:15:00Z",
-      joinDate: "2023-11-05T14:20:00Z",
-      avatar: "/api/placeholder/40/40"
-    },
-    {
-      id: 5,
-      name: "Ali Hassan",
-      email: "ali@example.com",
-      phone: "+92 304 5678901",
-      address: "654 Pine Street, Satellite Town, Rawalpindi, Pakistan",
-      city: "Rawalpindi",
-      country: "Pakistan",
-      status: "active",
-      totalOrders: 6,
-      totalSpent: 75000,
-      lastOrder: "2024-01-11T09:25:00Z",
-      joinDate: "2023-09-18T16:45:00Z",
-      avatar: "/api/placeholder/40/40"
-    },
-    {
-      id: 6,
-      name: "Ayesha Malik",
-      email: "ayesha@example.com",
-      phone: "+92 305 6789012",
-      address: "987 Elm Avenue, Clifton, Karachi, Pakistan",
-      city: "Karachi",
-      country: "Pakistan",
-      status: "active",
-      totalOrders: 20,
-      totalSpent: 250000,
-      lastOrder: "2024-01-16T11:30:00Z",
-      joinDate: "2023-03-12T09:00:00Z",
-      avatar: "/api/placeholder/40/40"
-    }
-  ]);
-
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [cityFilter, setCityFilter] = useState("all");
-  const [isLoading, setIsLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [isExporting, setIsExporting] = useState(false);
+  const limit = 10;
 
-  const filteredCustomers = customers.filter((customer) => {
-    const matchesSearch =
-      customer.name.toLowerCase().includes(search.toLowerCase()) ||
-      customer.email.toLowerCase().includes(search.toLowerCase()) ||
-      customer.phone.includes(search);
+  const debouncedSearch = useDebounce(search, 500);
 
-    const matchesStatus = statusFilter === "all" || customer.status === statusFilter;
-    const matchesCity = cityFilter === "all" || customer.city === cityFilter;
+  // Build query params for API
+  const queryParams = {
+    page,
+    limit,
+    ...(debouncedSearch && { search: debouncedSearch }),
+    ...(statusFilter !== "all" && { status: statusFilter }),
+    ...(cityFilter !== "all" && { city: cityFilter }),
+  };
 
-    return matchesSearch && matchesStatus && matchesCity;
-  });
+  const {
+    data: customersData,
+    isLoading,
+    isFetching,
+    error,
+    refetch,
+  } = useGetCustomersQuery(queryParams);
+
+  useRefetchOnWindowFocus(refetch);
+
+  const customers = customersData?.data?.customers || [];
+  const pagination = customersData?.data?.pagination || {
+    currentPage: 1,
+    totalPages: 1,
+    totalItems: 0,
+    itemsPerPage: limit,
+  };
+  const stats = customersData?.data?.stats || {
+    totalCustomers: 0,
+    activeCustomers: 0,
+    totalRevenue: 0,
+    avgOrderValue: 0
+  };
+
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+  }, [statusFilter, cityFilter, debouncedSearch]);
+
+  // Get unique cities from customers for filter dropdown
+  const getCities = () => {
+    const cities = [...new Set(customers.map(customer => customer.city).filter(Boolean))];
+    return cities.sort();
+  };
 
   const getStatusBadge = (status) => {
     const statusConfig = {
@@ -203,6 +152,7 @@ export default function CustomersListPage() {
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'N/A';
     return new Date(dateString).toLocaleDateString('en-PK', {
       year: 'numeric',
       month: 'short',
@@ -210,17 +160,206 @@ export default function CustomersListPage() {
     });
   };
 
-  const getCities = () => {
-    const cities = [...new Set(customers.map(customer => customer.city))];
-    return cities.sort();
+  const handleStatusToggle = async (customerId) => {
+    // TODO: Implement status toggle API call if needed
+    // For now, just refetch the data
+    refetch();
   };
 
-  const handleStatusToggle = (customerId) => {
-    setCustomers(customers.map(customer =>
-      customer.id === customerId
-        ? { ...customer, status: customer.status === 'active' ? 'inactive' : 'active' }
-        : customer
-    ));
+  const convertToCSV = (customers) => {
+    if (!customers || customers.length === 0) {
+      return '';
+    }
+
+    // CSV Headers
+    const headers = [
+      'Customer ID',
+      'Name',
+      'Email',
+      'Phone',
+      'City',
+      'Country',
+      'Status',
+      'Total Orders',
+      'Total Spent (PKR)',
+      'Last Order Date',
+      'Join Date'
+    ];
+
+    // CSV Rows
+    const rows = customers.map(customer => {
+      return [
+        customer.id || 'N/A',
+        customer.name || 'N/A',
+        customer.email || 'N/A',
+        customer.phone || 'N/A',
+        customer.city || 'N/A',
+        customer.country || 'N/A',
+        customer.status || 'N/A',
+        customer.totalOrders || 0,
+        (customer.totalSpent || 0).toLocaleString('en-PK'),
+        customer.lastOrder ? new Date(customer.lastOrder).toLocaleDateString('en-PK') : 'No orders',
+        customer.joinDate ? new Date(customer.joinDate).toLocaleDateString('en-PK') : 'N/A'
+      ];
+    });
+
+    // Combine headers and rows
+    const csvContent = [
+      headers.join(','),
+      ...rows.map(row => row.map(cell => {
+        // Escape commas and quotes in cell values
+        const cellValue = String(cell).replace(/"/g, '""');
+        return `"${cellValue}"`;
+      }).join(','))
+    ].join('\n');
+
+    return csvContent;
+  };
+
+  const downloadCSV = (csvContent, filename) => {
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+
+    link.setAttribute('href', url);
+    link.setAttribute('download', filename);
+    link.style.visibility = 'hidden';
+
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    URL.revokeObjectURL(url);
+  };
+
+  const fetchCustomersForExport = async (startDate, endDate) => {
+    try {
+      const params = new URLSearchParams({
+        limit: '10000', // Large limit to get all customers
+        ...(startDate && { startDate }),
+        ...(endDate && { endDate }),
+      });
+
+      const token = typeof window !== 'undefined' ? localStorage.getItem(accessKey) : null;
+      const response = await fetch(`/api/customers?${params.toString()}`, {
+        headers: {
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
+      const data = await response.json();
+
+      if (data.success && data.data?.customers) {
+        return data.data.customers;
+      }
+      return [];
+    } catch (error) {
+      console.error('Error fetching customers for export:', error);
+      return [];
+    }
+  };
+
+  const handleExportCustomers = async () => {
+    try {
+      const { value: formValues } = await Swal.fire({
+        title: 'Export Customers',
+        html: `
+          <div style="text-align: left; padding: 10px;">
+            <label style="display: block; margin-bottom: 5px; font-weight: bold;">Start Date:</label>
+            <input 
+              id="swal-start-date" 
+              type="date" 
+              class="swal2-input" 
+              placeholder="Select start date"
+            />
+            <label style="display: block; margin: 15px 0 5px 0; font-weight: bold;">End Date:</label>
+            <input 
+              id="swal-end-date" 
+              type="date" 
+              class="swal2-input" 
+              placeholder="Select end date"
+            />
+            <p style="margin-top: 15px; font-size: 12px; color: #666;">
+              Leave dates empty to export all customers
+            </p>
+          </div>
+        `,
+        focusConfirm: false,
+        showCancelButton: true,
+        confirmButtonText: 'Export CSV',
+        cancelButtonText: 'Cancel',
+        confirmButtonColor: '#10b981',
+        cancelButtonColor: '#6b7280',
+        preConfirm: () => {
+          const startDate = document.getElementById('swal-start-date').value;
+          const endDate = document.getElementById('swal-end-date').value;
+
+          if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+            Swal.showValidationMessage('Start date must be before end date');
+            return false;
+          }
+
+          return {
+            startDate: startDate || null,
+            endDate: endDate || null
+          };
+        }
+      });
+
+      if (!formValues) {
+        return; // User cancelled
+      }
+
+      setIsExporting(true);
+
+      Swal.fire({
+        title: 'Exporting...',
+        text: 'Please wait while we prepare your export file',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+
+      const customersToExport = await fetchCustomersForExport(formValues.startDate, formValues.endDate);
+
+      if (customersToExport.length === 0) {
+        Swal.fire({
+          title: 'No Customers Found',
+          text: 'No customers found for the selected date range',
+          icon: 'info',
+          confirmButtonColor: '#10b981',
+        });
+        setIsExporting(false);
+        return;
+      }
+
+      const csvContent = convertToCSV(customersToExport);
+      const dateStr = formValues.startDate && formValues.endDate
+        ? `${formValues.startDate}_to_${formValues.endDate}`
+        : 'all_customers';
+      const filename = `customers_export_${dateStr}_${new Date().toISOString().split('T')[0]}.csv`;
+
+      downloadCSV(csvContent, filename);
+
+      Swal.fire({
+        title: 'Exported!',
+        text: `${customersToExport.length} customer(s) exported successfully`,
+        icon: 'success',
+        timer: 2000,
+        showConfirmButton: false,
+      });
+
+      setIsExporting(false);
+    } catch (error) {
+      console.error('Export error:', error);
+      Swal.fire({
+        title: 'Export Failed',
+        text: error?.message || 'Failed to export customers. Please try again.',
+        icon: 'error',
+        confirmButtonColor: '#10b981',
+      });
+      setIsExporting(false);
+    }
   };
 
   return (
@@ -243,9 +382,22 @@ export default function CustomersListPage() {
           whileTap={{ scale: 0.95 }}
           className="flex gap-2"
         >
-          <Button className="bg-gray-500 text-white hover:bg-gray-600 px-4 py-2 flex items-center gap-2">
-            <FaDownload />
-            Export
+          <Button
+            className="bg-gray-500 text-white hover:bg-gray-600 px-4 py-2 flex items-center gap-2 disabled:opacity-50"
+            onClick={handleExportCustomers}
+            disabled={isExporting || isLoading}
+          >
+            {isExporting ? (
+              <>
+                <FaSpinner className="animate-spin" />
+                Exporting...
+              </>
+            ) : (
+              <>
+                <FaDownload />
+                Export
+              </>
+            )}
           </Button>
         </motion.div>
       </div>
@@ -261,7 +413,7 @@ export default function CustomersListPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-cardForeground/60">Total Customers</p>
-              <h3 className="text-2xl font-bold mt-1">{customers.length}</h3>
+              <h3 className="text-2xl font-bold mt-1">{stats.totalCustomers}</h3>
             </div>
             <FaUsers className="text-3xl text-primary" />
           </div>
@@ -276,7 +428,7 @@ export default function CustomersListPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-cardForeground/60">Active Customers</p>
-              <h3 className="text-2xl font-bold mt-1">{customers.filter(c => c.status === 'active').length}</h3>
+              <h3 className="text-2xl font-bold mt-1">{stats.activeCustomers}</h3>
             </div>
             <FaUsers className="text-3xl text-green-500" />
           </div>
@@ -291,7 +443,7 @@ export default function CustomersListPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-cardForeground/60">Total Revenue</p>
-              <h3 className="text-2xl font-bold mt-1">₨{customers.reduce((sum, c) => sum + c.totalSpent, 0).toLocaleString()}</h3>
+              <h3 className="text-2xl font-bold mt-1">₨{stats.totalRevenue.toLocaleString()}</h3>
             </div>
             <FaUsers className="text-3xl text-blue-500" />
           </div>
@@ -306,7 +458,7 @@ export default function CustomersListPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-cardForeground/60">Avg Order Value</p>
-              <h3 className="text-2xl font-bold mt-1">₨{Math.round(customers.reduce((sum, c) => sum + c.totalSpent, 0) / customers.reduce((sum, c) => sum + c.totalOrders, 0)).toLocaleString()}</h3>
+              <h3 className="text-2xl font-bold mt-1">₨{stats.avgOrderValue.toLocaleString()}</h3>
             </div>
             <FaUsers className="text-3xl text-purple-500" />
           </div>
@@ -353,7 +505,7 @@ export default function CustomersListPage() {
         </select>
 
         <div className="text-sm text-cardForeground/60">
-          {filteredCustomers.length} customers found
+          {pagination.totalItems} customers found
         </div>
       </motion.div>
 
@@ -364,111 +516,134 @@ export default function CustomersListPage() {
         transition={{ delay: 0.6 }}
         className="border rounded-lg overflow-hidden shadow bg-white"
       >
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Customer</TableHead>
-              <TableHead>Contact</TableHead>
-              <TableHead>Location</TableHead>
-              <TableHead>Orders</TableHead>
-              <TableHead>Total Spent</TableHead>
-              <TableHead>Last Order</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead>Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <AnimatePresence>
-            <TableBody>
-              {filteredCustomers.map((customer, index) => (
-                <motion.tr
-                  key={customer.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  className="hover:bg-gray-50"
-                >
-                  <TableCell>
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                        <FaUsers className="text-gray-400" />
+        {isLoading || isFetching ? (
+          <div className="flex items-center justify-center py-12">
+            <FaSpinner className="animate-spin text-2xl text-primary" />
+          </div>
+        ) : error ? (
+          <div className="flex items-center justify-center py-12 text-red-500">
+            <p>Error loading customers. Please try again.</p>
+          </div>
+        ) : customers.length === 0 ? (
+          <div className="flex items-center justify-center py-12 text-gray-500">
+            <p>No customers found.</p>
+          </div>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Customer</TableHead>
+                <TableHead>Contact</TableHead>
+                <TableHead>Location</TableHead>
+                <TableHead>Orders</TableHead>
+                <TableHead>Total Spent</TableHead>
+                <TableHead>Last Order</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <AnimatePresence>
+              <TableBody>
+                {customers.map((customer, index) => (
+                  <motion.tr
+                    key={customer.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                    className="hover:bg-gray-50"
+                  >
+                    <TableCell>
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
+                          <FaUsers className="text-gray-400" />
+                        </div>
+                        <div>
+                          <p className="font-medium">{customer.name}</p>
+                          <p className="text-sm text-cardForeground/60">Joined {formatDate(customer.joinDate)}</p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{customer.name}</p>
-                        <p className="text-sm text-cardForeground/60">Joined {formatDate(customer.joinDate)}</p>
+                    </TableCell>
+                    <TableCell>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 text-sm">
+                          <FaEnvelope className="text-gray-400" />
+                          <span>{customer.email}</span>
+                        </div>
+                        {customer.phone && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <FaPhone className="text-gray-400" />
+                            <span>{customer.phone}</span>
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 text-sm">
-                        <FaEnvelope className="text-gray-400" />
-                        <span>{customer.email}</span>
+                    </TableCell>
+                    <TableCell>
+                      {customer.city && (
+                        <div className="flex items-center gap-2 text-sm">
+                          <FaMapMarkerAlt className="text-gray-400" />
+                          <span>{customer.city}{customer.country ? `, ${customer.country}` : ''}</span>
+                        </div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-center">
+                        <p className="font-bold text-lg">{customer.totalOrders}</p>
+                        <p className="text-xs text-cardForeground/60">orders</p>
                       </div>
-                      <div className="flex items-center gap-2 text-sm">
-                        <FaPhone className="text-gray-400" />
-                        <span>{customer.phone}</span>
+                    </TableCell>
+                    <TableCell className="font-bold">₨{customer.totalSpent.toLocaleString()}</TableCell>
+                    <TableCell>
+                      <div className="text-sm">
+                        {customer.lastOrder ? formatDate(customer.lastOrder) : 'No orders'}
                       </div>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-2 text-sm">
-                      <FaMapMarkerAlt className="text-gray-400" />
-                      <span>{customer.city}, {customer.country}</span>
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-center">
-                      <p className="font-bold text-lg">{customer.totalOrders}</p>
-                      <p className="text-xs text-cardForeground/60">orders</p>
-                    </div>
-                  </TableCell>
-                  <TableCell className="font-bold">₨{customer.totalSpent.toLocaleString()}</TableCell>
-                  <TableCell>
-                    <div className="text-sm">
-                      {customer.lastOrder ? formatDate(customer.lastOrder) : 'No orders'}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <button
-                      onClick={() => handleStatusToggle(customer.id)}
-                      className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${customer.status === 'active'
-                        ? 'bg-green-100 text-green-800 hover:bg-green-200'
-                        : 'bg-red-100 text-red-800 hover:bg-red-200'
-                        }`}
-                    >
-                      {customer.status === 'active' ? 'Active' : 'Inactive'}
-                    </button>
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-2 items-center">
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="text-blue-600 hover:text-blue-800 p-1"
-                        title="View Details"
+                    </TableCell>
+                    <TableCell>
+                      <button
+                        onClick={() => handleStatusToggle(customer.id)}
+                        className={`px-2 py-1 rounded-full text-xs font-medium transition-colors ${customer.status === 'active'
+                          ? 'bg-green-100 text-green-800 hover:bg-green-200'
+                          : 'bg-red-100 text-red-800 hover:bg-red-200'
+                          }`}
                       >
-                        <FaEye />
-                      </motion.button>
-                      <motion.button
-                        whileHover={{ scale: 1.05 }}
-                        whileTap={{ scale: 0.95 }}
-                        className="text-green-600 hover:text-green-800 p-1"
-                        title="Edit Customer"
-                      >
-                        <FaEdit />
-                      </motion.button>
-                    </div>
-                  </TableCell>
-                </motion.tr>
-              ))}
-            </TableBody>
-          </AnimatePresence>
-        </Table>
+                        {customer.status === 'active' ? 'Active' : 'Inactive'}
+                      </button>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2 items-center">
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="text-blue-600 hover:text-blue-800 p-1"
+                          title="View Details"
+                        >
+                          <FaEye />
+                        </motion.button>
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          className="text-green-600 hover:text-green-800 p-1"
+                          title="Edit Customer"
+                        >
+                          <FaEdit />
+                        </motion.button>
+                      </div>
+                    </TableCell>
+                  </motion.tr>
+                ))}
+              </TableBody>
+            </AnimatePresence>
+          </Table>
+        )}
       </motion.div>
 
-      {isLoading && (
-        <div className="fixed top-0 left-0 right-0 bottom-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary"></div>
+      {/* Pagination */}
+      {!isLoading && !error && customers.length > 0 && (
+        <div className="flex justify-center">
+          <Pagination
+            currentPage={pagination.currentPage}
+            totalPages={pagination.totalPages}
+            onPageChange={setPage}
+          />
         </div>
       )}
     </motion.div>
