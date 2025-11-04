@@ -1,10 +1,56 @@
 'use client';
 
+import { useState } from 'react';
 import BRAND from '@/utils/brandConstants';
 import Link from 'next/link';
+import { useSubscribeNewsletterMutation } from '@/redux/api/Newsletter';
 
 export default function Footer() {
   const currentYear = new Date().getFullYear();
+  const [email, setEmail] = useState('');
+  const [subscribeNewsletter, { isLoading: isSubmitting, error: subscribeError }] = useSubscribeNewsletterMutation();
+  const [submitStatus, setSubmitStatus] = useState(null);
+  const [submitMessage, setSubmitMessage] = useState('');
+
+  const handleNewsletterSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!email) {
+      setSubmitStatus('error');
+      setSubmitMessage('Please enter your email address');
+      setTimeout(() => {
+        setSubmitStatus(null);
+        setSubmitMessage('');
+      }, 3000);
+      return;
+    }
+
+    setSubmitStatus(null);
+    setSubmitMessage('');
+
+    try {
+      const result = await subscribeNewsletter({ email }).unwrap();
+
+      if (result.success) {
+        setSubmitStatus('success');
+        setSubmitMessage('Successfully subscribed! You will receive our newsletter updates.');
+        setEmail('');
+        setTimeout(() => {
+          setSubmitStatus(null);
+          setSubmitMessage('');
+        }, 5000);
+      }
+    } catch (error) {
+      console.error('Newsletter subscription error:', error);
+      setSubmitStatus('error');
+      const errorMsg = error?.data?.message || error?.message || 'Failed to subscribe. Please try again.';
+      setSubmitMessage(errorMsg);
+      setTimeout(() => {
+        setSubmitStatus(null);
+        setSubmitMessage('');
+      }, 5000);
+    }
+  };
 
   return (
     <footer className="bg-gray-50 border-t border-gray-200">
@@ -16,20 +62,32 @@ export default function Footer() {
             <p className="text-gray-300 mb-6">
               Subscribe to our newsletter and be the first to know about new products and exclusive offers.
             </p>
-            <form className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
+            <form onSubmit={handleNewsletterSubmit} className="flex flex-col sm:flex-row gap-4 max-w-md mx-auto">
               <input
                 type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email address"
                 className="flex-1 px-4 py-3 rounded-lg border-0 text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
+                disabled={isSubmitting}
               />
               <button
                 type="submit"
-                className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium"
+                disabled={isSubmitting}
+                className="px-6 py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Subscribe
+                {isSubmitting ? 'Subscribing...' : 'Subscribe'}
               </button>
             </form>
+            {submitStatus && (
+              <div className={`mt-4 max-w-md mx-auto px-4 py-3 rounded-lg text-sm ${submitStatus === 'success'
+                ? 'bg-green-100 text-green-800 border border-green-200'
+                : 'bg-red-100 text-red-800 border border-red-200'
+                }`}>
+                {submitMessage}
+              </div>
+            )}
           </div>
         </div>
       </div>

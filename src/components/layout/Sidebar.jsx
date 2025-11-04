@@ -9,7 +9,8 @@ import {
   FaShoppingCart,
   FaUsers,
   FaUserEdit,
-  FaCog
+  FaCog,
+  FaEnvelope
 } from "react-icons/fa";
 import { usePathname } from "next/navigation";
 
@@ -112,6 +113,16 @@ export default function Sidebar() {
         transition={{ delay: 0.4 }}
         className="px-4 space-y-1"
       >
+        <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+          <Link
+            href="/admin/newsletter"
+            className={`py-2 px-2 rounded transition-colors duration-200 flex items-center gap-x-1 ${pathname === "/admin/newsletter" ? "bg-blue-50 text-primary" : ""
+              }`}
+          >
+            <FaEnvelope />
+            Newsletter
+          </Link>
+        </motion.div>
         <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
           <Link
             href="/admin/settings"

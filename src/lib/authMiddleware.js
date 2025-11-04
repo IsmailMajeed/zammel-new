@@ -59,6 +59,11 @@ export function requireAdmin(handler) {
 
     // Attach admin info to request for use in handler
     request.admin = admin;
+    request.user = {
+      id: admin.userId,
+      email: admin.email,
+      isAdmin: true
+    };
 
     return handler(request, context);
   };
