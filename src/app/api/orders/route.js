@@ -5,6 +5,7 @@ import Product from '@/models/Product';
 import User from '@/models/User'; // Import User model to ensure it's registered
 import { successResponse, errorResponse } from '@/utils/responses';
 import jwt from 'jsonwebtoken';
+import mongoose from 'mongoose';
 
 // Helper function to extract user ID from JWT token in authorization header
 function getUserIdFromAuthHeader(request) {
@@ -226,44 +227,87 @@ export async function POST(request) {
       description: 'Standard Shipping'
     };
 
-    // Create order
-    const order = await Order.create({
-      orderNumber,
-      user: userId || null,
-      items: validatedItems,
-      shippingAddress,
-      paymentMethod,
-      subtotal: recalculatedSubtotal,
-      shipping: finalShipping,
-      tax: recalculatedTax,
-      taxDetails: taxDetails,
-      shippingDetails: shippingDetails,
-      discount: discount || 0,
-      total: recalculatedTotal,
-      paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
-      orderStatus: 'pending'
-    });
+    // Start MongoDB transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
 
-    // Update product stock
-    for (const item of validatedItems) {
-      const product = await Product.findById(item.productId);
-      if (product) {
-        const variant = getVariantByColorAndSize(
-          product,
-          item.variant.color,
-          item.variant.size
-        );
+    try {
+      // Create order within transaction
+      const order = await Order.create([{
+        orderNumber,
+        user: userId || null,
+        items: validatedItems,
+        shippingAddress,
+        paymentMethod,
+        subtotal: recalculatedSubtotal,
+        shipping: finalShipping,
+        tax: recalculatedTax,
+        taxDetails: taxDetails,
+        shippingDetails: shippingDetails,
+        discount: discount || 0,
+        total: recalculatedTotal,
+        paymentStatus: paymentMethod === 'cod' ? 'pending' : 'pending',
+        orderStatus: 'pending'
+      }], { session });
 
-        if (variant) {
-          variant.quantity = Math.max(0, variant.quantity - item.quantity);
-          await product.save();
+      const createdOrder = order[0];
+
+      // Update product stock within transaction
+      for (const item of validatedItems) {
+        const product = await Product.findById(item.productId).session(session);
+        if (product) {
+          const variant = getVariantByColorAndSize(
+            product,
+            item.variant.color,
+            item.variant.size
+          );
+
+          if (variant) {
+            variant.quantity = Math.max(0, variant.quantity - item.quantity);
+            await product.save({ session });
+          }
         }
       }
+
+      // Commit transaction if all operations succeed
+      await session.commitTransaction();
+
+      // Use created order for further operations
+      var finalOrder = createdOrder;
+    } catch (transactionError) {
+      // Rollback transaction on any error
+      await session.abortTransaction();
+      throw transactionError;
+    } finally {
+      // End session
+      session.endSession();
+    }
+
+    // Get populated order for email (outside transaction)
+    const populatedOrder = await Order.findById(finalOrder._id).populate('user', 'name email');
+
+    // Send order confirmation email to customer
+    try {
+      const { sendOrderEmail } = await import('@/utils/sendOrderEmail');
+      const { getOrderConfirmationEmail } = await import('@/utils/emailTemplates');
+
+      const customerEmail = populatedOrder.shippingAddress?.email;
+      if (customerEmail) {
+        const emailHtml = getOrderConfirmationEmail(populatedOrder);
+        await sendOrderEmail(
+          customerEmail,
+          `Order Confirmation - ${populatedOrder.orderNumber}`,
+          emailHtml
+        );
+      }
+    } catch (emailError) {
+      // Log error but don't fail order creation
+      console.error('Failed to send order confirmation email:', emailError);
     }
 
     return NextResponse.json(
       successResponse('Order created successfully', {
-        order: await Order.findById(order._id).populate('user', 'name email')
+        order: populatedOrder
       }, 201),
       { status: 201 }
     );

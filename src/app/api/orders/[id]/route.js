@@ -2,8 +2,19 @@ import { NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/authMiddleware';
 import { connectToDb } from '@/lib/mongodb';
 import Order from '@/models/Order';
+import Product from '@/models/Product';
 import User from '@/models/User'; // Import User model to ensure it's registered
 import { successResponse, errorResponse } from '@/utils/responses';
+import mongoose from 'mongoose';
+
+// Helper function to get variant by color and size
+function getVariantByColorAndSize(product, color, size) {
+  if (!product?.variants) return null;
+  return product.variants.find(
+    v => v.color?.toLowerCase() === color?.toLowerCase() &&
+      v.size === size
+  ) || product.variants[0];
+}
 
 // GET order by ID
 export async function GET(request, { params }) {
@@ -66,19 +77,115 @@ export const PUT = requireAdmin(async (request, { params }) => {
       );
     }
 
-    if (orderStatus) {
-      order.orderStatus = orderStatus;
+    const oldOrderStatus = order.orderStatus;
+    const isCancelling = orderStatus === 'cancelled' && oldOrderStatus !== 'cancelled';
+    const isRestoringFromCancelled = oldOrderStatus === 'cancelled' && orderStatus && orderStatus !== 'cancelled';
+
+    // Start MongoDB transaction
+    const session = await mongoose.startSession();
+    session.startTransaction();
+
+    try {
+      // Update order within transaction
+      if (orderStatus) {
+        order.orderStatus = orderStatus;
+      }
+
+      if (paymentStatus) {
+        order.paymentStatus = paymentStatus;
+      }
+
+      await order.save({ session });
+
+      // Restore stock if order is being cancelled
+      if (isCancelling && order.items && order.items.length > 0) {
+        for (const item of order.items) {
+          try {
+            const product = await Product.findById(item.productId).session(session);
+            if (product) {
+              const variant = getVariantByColorAndSize(
+                product,
+                item.variant?.color,
+                item.variant?.size
+              );
+
+              if (variant) {
+                // Restore stock quantity
+                variant.quantity = (variant.quantity || 0) + (item.quantity || 0);
+                await product.save({ session });
+              }
+            }
+          } catch (stockError) {
+            console.error('Error restoring stock for item:', item.productId, stockError);
+            // Continue with other items even if one fails
+          }
+        }
+      }
+
+      // Deduct stock if order is being restored from cancelled status
+      // (e.g., if admin accidentally cancelled and wants to restore)
+      if (isRestoringFromCancelled && order.items && order.items.length > 0) {
+        for (const item of order.items) {
+          try {
+            const product = await Product.findById(item.productId).session(session);
+            if (product) {
+              const variant = getVariantByColorAndSize(
+                product,
+                item.variant?.color,
+                item.variant?.size
+              );
+
+              if (variant) {
+                // Deduct stock quantity
+                variant.quantity = Math.max(0, (variant.quantity || 0) - (item.quantity || 0));
+                await product.save({ session });
+              }
+            }
+          } catch (stockError) {
+            console.error('Error deducting stock for item:', item.productId, stockError);
+            // Continue with other items even if one fails
+          }
+        }
+      }
+
+      // Commit transaction if update succeeds
+      await session.commitTransaction();
+    } catch (transactionError) {
+      // Rollback transaction on any error
+      await session.abortTransaction();
+      throw transactionError;
+    } finally {
+      // End session
+      session.endSession();
     }
 
-    if (paymentStatus) {
-      order.paymentStatus = paymentStatus;
-    }
+    // Get populated order for email (outside transaction)
+    const populatedOrder = await Order.findById(order._id).populate('user', 'name email');
 
-    await order.save();
+    // Send order status update email to customer if status changed
+    if (orderStatus && orderStatus !== oldOrderStatus) {
+      try {
+        const { sendOrderEmail } = await import('@/utils/sendOrderEmail');
+        const { getOrderStatusUpdateEmail } = await import('@/utils/emailTemplates');
+
+        const customerEmail = populatedOrder.shippingAddress?.email;
+        if (customerEmail) {
+          const emailHtml = getOrderStatusUpdateEmail(populatedOrder, oldOrderStatus);
+          await sendOrderEmail(
+            customerEmail,
+            `Order Status Update - ${populatedOrder.orderNumber}`,
+            emailHtml
+          );
+        }
+      } catch (emailError) {
+        // Log error but don't fail order update
+        console.error('Failed to send order status update email:', emailError);
+      }
+    }
 
     return NextResponse.json(
       successResponse('Order updated successfully', {
-        order: await Order.findById(order._id).populate('user', 'name email')
+        order: populatedOrder
       }, 200),
       { status: 200 }
     );

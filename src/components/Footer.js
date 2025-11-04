@@ -125,11 +125,11 @@ export default function Footer() {
             {/* Contact Info */}
             <div>
               <h4 className="text-lg font-semibold text-gray-900 mb-4">Contact Info</h4>
-              <div className="space-y-2 text-gray-600">
-                <p>📧 info@mettwear.com</p>
-                <p>📞 +92 300 1234567</p>
-                <p>📍 Karachi, Pakistan</p>
-                <p>🕒 Mon - Fri: 9AM - 6PM</p>
+              <div className="flex flex-col gap-y-2 text-gray-600">
+                <a href={`mailto:${BRAND.contact.email}`}>📧 {BRAND.contact.email}</a>
+                <a href={`tel:${BRAND.contact.phone}`}>📞 {BRAND.contact.phone}</a>
+                <span>📍 Lahore, Pakistan</span>
+                <span>🕒 Mon - Fri: 9AM - 6PM</span>
               </div>
             </div>
           </div>
@@ -149,9 +149,6 @@ export default function Footer() {
               </Link>
               <Link href="/terms" className="text-gray-600 hover:text-blue-500 transition-colors">
                 Terms of Service
-              </Link>
-              <Link href="/cookies" className="text-gray-600 hover:text-blue-500 transition-colors">
-                Cookie Policy
               </Link>
             </div>
           </div>

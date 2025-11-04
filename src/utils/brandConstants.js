@@ -12,8 +12,8 @@ export const BRAND = {
 
     // Contact Information
     contact: {
-        phone: "+92 (300) 1234567",
-        email: "support@zammel.com",
+        phone: "+92 (371) 0713445",
+        email: "zammelOfficial@gmail.com",
         address: {
             street: "45-B, MM Alam Road",
             suite: "Shop #12",
@@ -21,7 +21,7 @@ export const BRAND = {
             state: "Punjab",
             zipCode: "54000",
             country: "Pakistan",
-            fullAddress: "45-B, MM Alam Road, Shop #12, Lahore, Punjab 54000, Pakistan"
+            fullAddress: "Lahore, Punjab 54000, Pakistan"
         },
         businessHours: {
             weekdays: "Monday to Friday: 10:00 AM - 8:00 PM",

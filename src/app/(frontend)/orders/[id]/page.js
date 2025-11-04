@@ -86,10 +86,10 @@ export default function OrderConfirmationPage() {
             <div className="text-right">
               <p className="text-sm text-gray-500">Order Status</p>
               <span className={`inline-block px-3 py-1 rounded-full text-sm font-medium ${order.orderStatus === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                  order.orderStatus === 'processing' ? 'bg-blue-100 text-blue-800' :
-                    order.orderStatus === 'shipped' ? 'bg-purple-100 text-purple-800' :
-                      order.orderStatus === 'delivered' ? 'bg-green-100 text-green-800' :
-                        'bg-red-100 text-red-800'
+                order.orderStatus === 'processing' ? 'bg-blue-100 text-blue-800' :
+                  order.orderStatus === 'shipped' ? 'bg-purple-100 text-purple-800' :
+                    order.orderStatus === 'delivered' ? 'bg-green-100 text-green-800' :
+                      'bg-red-100 text-red-800'
                 }`}>
                 {order.orderStatus.charAt(0).toUpperCase() + order.orderStatus.slice(1)}
               </span>
