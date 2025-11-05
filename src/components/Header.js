@@ -119,6 +119,7 @@ export default function Header() {
               <button
                 className="flex items-center"
                 onClick={() => setIsMenuOpen(true)}
+                aria-label="Open main menu"
               >
                 <LucideMenu className='w-7 h-7 text-gray-900 border border-gray-200 p-1 rounded-md' />
               </button>
@@ -143,6 +144,7 @@ export default function Header() {
                 type="text"
                 className="p-2 text-gray-700 hover:text-red-500 transition-colors relative"
                 onClick={() => dispatch(openWishlist())}
+                aria-label="Open wishlist"
                 icon={
                   <span className="relative">
                     <Heart className="w-5 h-5" />
@@ -160,6 +162,7 @@ export default function Header() {
                 type="text"
                 className="p-2 text-gray-700 hover:text-blue-500 transition-colors relative"
                 onClick={() => dispatch(openCart())}
+                aria-label="Open shopping cart"
                 icon={
                   <span className="relative">
                     <ShoppingCartOutlined style={{ fontSize: 20 }} />
@@ -194,10 +197,10 @@ export default function Header() {
                     placement="bottomRight"
                     trigger={["click"]}
                   >
-                    <Button type="text" className="p-2 text-gray-700 hover:text-blue-500 transition-colors" icon={<UserOutlined />} />
+                    <Button type="text" className="p-2 text-gray-700 hover:text-blue-500 transition-colors" icon={<UserOutlined />} aria-label="Open account menu" />
                   </Dropdown>
                 ) : (
-                  <Button type="text" className="p-2 text-gray-700 hover:text-blue-500 transition-colors" icon={<UserOutlined />} onClick={handleAccountClick} />
+                  <Button type="text" className="p-2 text-gray-700 hover:text-blue-500 transition-colors" icon={<UserOutlined />} aria-label="Go to account" onClick={handleAccountClick} />
                 )}
               </div>
             </div>
@@ -227,6 +230,7 @@ export default function Header() {
                     icon={<UserOutlined />}
                     className="flex items-center justify-start text-gray-700 hover:text-blue-500 transition-colors"
                     style={{ textAlign: "left" }}
+                    aria-label="Go to profile"
                     onClick={() => { setIsMenuOpen(false); router.push('/profile'); }}
                   >
                     Profile
@@ -236,6 +240,7 @@ export default function Header() {
                     block
                     className="flex items-center justify-start text-gray-700 hover:text-blue-500 transition-colors"
                     style={{ textAlign: "left" }}
+                    aria-label="Logout"
                     onClick={() => { setIsMenuOpen(false); handleLogout(); }}
                   >
                     Logout
@@ -248,6 +253,7 @@ export default function Header() {
                   icon={<UserOutlined />}
                   className="flex items-center justify-start text-gray-700 hover:text-blue-500 transition-colors"
                   style={{ textAlign: "left" }}
+                  aria-label="Go to login"
                   onClick={() => { setIsMenuOpen(false); router.push('/auth/login'); }}
                 >
                   Account

@@ -133,8 +133,9 @@ export default function ProductGrid({
           <div className="flex items-center space-x-4">
             {/* Sort Dropdown */}
             <div className="relative">
-              <label className="text-sm text-gray-600 mr-2">Sort by:</label>
+              <label htmlFor="sortBy" className="text-sm text-gray-600 mr-2">Sort by:</label>
               <select
+                id="sortBy"
                 value={localFilters.sortBy}
                 onChange={(e) => handleSortChange(e.target.value)}
                 className="appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 hover:border-gray-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -160,7 +161,7 @@ export default function ProductGrid({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Category Filter */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
+                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
                   Category
                   {isLoading && (
                     <span className="ml-2 inline-block">
@@ -172,6 +173,7 @@ export default function ProductGrid({
                   )}
                 </label>
                 <select
+                  id="category"
                   value={localFilters.category}
                   onChange={(e) => handleCategoryChange(e.target.value)}
                   disabled={isLoading}
@@ -193,16 +195,20 @@ export default function ProductGrid({
                 </label>
                 <div className="flex items-center space-x-2">
                   <input
+                    id="minPrice"
                     type="number"
                     placeholder="Min"
+                    aria-label="Minimum price"
                     value={localFilters.minPrice}
                     onChange={(e) => handlePriceChange('minPrice', e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   <span className="text-gray-500">-</span>
                   <input
+                    id="maxPrice"
                     type="number"
                     placeholder="Max"
+                    aria-label="Maximum price"
                     value={localFilters.maxPrice}
                     onChange={(e) => handlePriceChange('maxPrice', e.target.value)}
                     className="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"

@@ -1,6 +1,7 @@
 import { Manrope, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import { Providers } from "./providers";
+import { BRAND } from "@/utils/brandConstants";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -15,12 +16,15 @@ const plusJakarta = Plus_Jakarta_Sans({
 });
 
 export const metadata = {
-  title: "ZAMMEL - Premium Hoodies Collection | First Check Then Pay",
-  description: "First in Pakistan to offer open parcel delivery. Premium quality hoodies with first check then pay policy. Shop our exclusive collection of comfortable and stylish hoodies.",
-  keywords: "hoodies, pakistan, premium clothing, mettwear, first check then pay, comfortable hoodies, stylish clothing",
-  authors: [{ name: "ZAMMEL" }],
-  creator: "ZAMMEL",
-  publisher: "ZAMMEL",
+  title: {
+    default: "Zammel - Premium Fashion Brand",
+    template: "%s | Zammel",
+  },
+  description: "Discover premium fashion with Zammel. Check first, then pay. Shop quality hoodies and more.",
+  keywords: BRAND.meta?.keywords,
+  authors: BRAND.meta?.authors,
+  creator: BRAND.name,
+  publisher: BRAND.name,
   robots: {
     index: true,
     follow: true,
@@ -32,30 +36,40 @@ export const metadata = {
       "max-snippet": -1,
     },
   },
+  alternates: {
+    canonical: "/",
+  },
   openGraph: {
     type: "website",
     locale: "en_US",
-    url: "https://mettwear.com",
-    siteName: "ZAMMEL",
-    title: "ZAMMEL - Premium Hoodies Collection | First Check Then Pay",
-    description: "First in Pakistan to offer open parcel delivery. Premium quality hoodies with first check then pay policy.",
+    siteName: "Zammel",
+    title: "Zammel - Premium Fashion Brand",
+    description: "Discover premium fashion with Zammel. Check first, then pay.",
     images: [
       {
-        url: "https://mettwear.com/cdn/shop/files/PO2_Hoodie.jpg?v=1730314234",
-        width: 1200,
-        height: 630,
-        alt: "ZAMMEL Premium Hoodies",
+        url: "/favicon_io/android-chrome-512x512.png",
+        width: 512,
+        height: 512,
+        alt: "Zammel Brand Icon",
       },
     ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "ZAMMEL - Premium Hoodies Collection",
-    description: "First in Pakistan to offer open parcel delivery. Premium quality hoodies.",
-    images: ["https://mettwear.com/cdn/shop/files/PO2_Hoodie.jpg?v=1730314234"],
+    title: "Zammel - Premium Fashion Brand",
+    description: "Discover premium fashion with Zammel. Check first, then pay.",
+    images: ["/favicon_io/android-chrome-512x512.png"],
+  },
+  icons: {
+    icon: [
+      { url: "/favicon_io/favicon-32x32.png", type: "image/png", sizes: "32x32" },
+      { url: "/favicon_io/favicon-16x16.png", type: "image/png", sizes: "16x16" },
+      { url: "/favicon_io/favicon.ico", rel: "shortcut icon" },
+    ],
+    apple: [{ url: "/favicon_io/apple-touch-icon.png", sizes: "180x180" }],
   },
   verification: {
-    google: "your-google-verification-code",
+    google: "",
   },
 };
 
@@ -63,27 +77,24 @@ export default function RootLayout({ children }) {
   return (
     <html lang="en">
       <head>
-        <link rel="canonical" href="https://mettwear.com" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
         <meta name="theme-color" content="#222222" />
-        <link rel="icon" href="/favicon.ico" />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
             __html: JSON.stringify({
               "@context": "https://schema.org",
               "@type": "Organization",
-              "name": "ZAMMEL",
-              "url": "https://mettwear.com",
-              "logo": "https://mettwear.com/cdn/shop/files/PO2_Hoodie.jpg?v=1730314234",
-              "description": "First in Pakistan to offer open parcel delivery. Premium quality hoodies with first check then pay policy.",
+              "name": "Zammel",
+              "url": "/",
+              "logo": "/favicon_io/android-chrome-512x512.png",
+              "description": BRAND.meta?.description,
               "address": {
                 "@type": "PostalAddress",
                 "addressCountry": "PK"
               },
               "sameAs": [
-                "https://www.facebook.com/mettwear",
-                "https://www.instagram.com/mettwear"
+                "https://www.facebook.com/",
+                "https://www.instagram.com/"
               ]
             })
           }}
