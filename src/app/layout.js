@@ -69,7 +69,7 @@ export const metadata = {
     apple: [{ url: "/favicon_io/apple-touch-icon.png", sizes: "180x180" }],
   },
   verification: {
-    google: "",
+    google: "google-site-verification=oss8mpypPHNgCmtWXrShnphNuR6niSJSXiwEzwSp8dE",
   },
 };
 
