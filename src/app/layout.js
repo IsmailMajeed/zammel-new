@@ -99,6 +99,9 @@ export default function RootLayout({ children }) {
             })
           }}
         />
+        <script async custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js"></script>
+        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2984910822285596"
+          crossOrigin="anonymous"></script>
       </head>
       <body
         className={`${manrope.variable} ${plusJakarta.variable} antialiased`}
