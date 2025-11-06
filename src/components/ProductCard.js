@@ -334,11 +334,11 @@ export default function ProductCard({ product }) {
           </div>
 
           {/* Stock Info */}
-          {stockQuantity > 0 && (
+          {/* {stockQuantity > 0 && (
             <p className="text-sm text-gray-500 mt-2">
               {availableStock} {availableStock === 1 ? 'item' : 'items'} available
             </p>
-          )}
+          )} */}
 
           {/* Add to Cart Button */}
           <button
