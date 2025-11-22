@@ -61,11 +61,6 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-white">
-      {/* Page Intro */}
-      <section className="container !py-8 hidden">
-        <h1 className="text-3xl md:text-4xl font-extrabold text-gray-900 mb-3">Premium Hoodies by Zammel – Check First, Then Pay</h1>
-        <p className="text-gray-600 max-w-3xl">Experience premium comfort and style. Explore our latest collections with open-parcel delivery across Pakistan.</p>
-      </section>
       {/* Promo Banner */}
       <section className="bg-gray-900 text-white py-3">
         <div className="container text-center">
