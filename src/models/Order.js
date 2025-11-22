@@ -158,7 +158,7 @@ const OrderSchema = new mongoose.Schema(
       },
       type: {
         type: String,
-        enum: ['fixed', 'percentage', 'free_above'],
+        enum: ['fixed', 'percentage', 'free_above', 'city_wise'],
         default: 'fixed'
       },
       value: {
@@ -172,6 +172,15 @@ const OrderSchema = new mongoose.Schema(
       description: {
         type: String,
         default: 'Standard Shipping'
+      },
+      cityCharges: {
+        type: Map,
+        of: Number,
+        default: {}
+      },
+      selectedCity: {
+        type: String,
+        default: ''
       }
     },
     discount: {

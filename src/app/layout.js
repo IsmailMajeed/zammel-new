@@ -1,4 +1,5 @@
 import { Manrope, Plus_Jakarta_Sans } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 import { Providers } from "./providers";
 import { BRAND } from "@/utils/brandConstants";
@@ -87,7 +88,7 @@ export default function RootLayout({ children }) {
               "name": "Zammel",
               "url": "/",
               "logo": "/favicon_io/android-chrome-512x512.png",
-              "description": BRAND.meta?.description,
+              "description": BRAND.meta?.description || "Premium Fashion Brand",
               "address": {
                 "@type": "PostalAddress",
                 "addressCountry": "PK"
@@ -98,14 +99,24 @@ export default function RootLayout({ children }) {
               ]
             })
           }}
+          suppressHydrationWarning
         />
-        <script async custom-element="amp-ad" src="https://cdn.ampproject.org/v0/amp-ad-0.1.js"></script>
-        <script async src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2984910822285596"
-          crossOrigin="anonymous"></script>
       </head>
       <body
         className={`${manrope.variable} ${plusJakarta.variable} antialiased`}
       >
+        <Script
+          async
+          custom-element="amp-ad"
+          src="https://cdn.ampproject.org/v0/amp-ad-0.1.js"
+          strategy="afterInteractive"
+        />
+        <Script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-2984910822285596"
+          crossOrigin="anonymous"
+          strategy="afterInteractive"
+        />
         <Providers>
           {children}
         </Providers>

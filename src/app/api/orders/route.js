@@ -274,6 +274,26 @@ export async function POST(request) {
 
       // Use created order for further operations
       var finalOrder = createdOrder;
+
+      // Create notification for order placed (only for logged-in users)
+      if (userId) {
+        try {
+          const { createOrderNotification } = await import('@/utils/createNotification');
+          await createOrderNotification(finalOrder, 'order_placed');
+        } catch (notificationError) {
+          console.error('Failed to create order placed notification:', notificationError);
+          // Don't fail order creation if notification fails
+        }
+      }
+
+      // Create admin notification for new order
+      try {
+        const { createAdminOrderNotification } = await import('@/utils/createNotification');
+        await createAdminOrderNotification(finalOrder);
+      } catch (adminNotificationError) {
+        console.error('Failed to create admin order notification:', adminNotificationError);
+        // Don't fail order creation if notification fails
+      }
     } catch (transactionError) {
       // Rollback transaction on any error
       await session.abortTransaction();

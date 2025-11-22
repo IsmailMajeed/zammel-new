@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearCart, updateQuantity, removeFromCart } from '@/redux/slices/Cart';
 import { useCreateOrderMutation } from '@/redux/api/Orders';
@@ -11,6 +11,7 @@ import { CreditCard, MapPin, Phone, Mail, ArrowLeft, Lock, AlertTriangle } from 
 import Link from 'next/link';
 import { getVariantByColorAndSize } from '@/utils/productTransformers';
 import Swal from 'sweetalert2';
+import { SORTED_CITIES } from '@/utils/pakistaniCities';
 
 export default function CheckoutPage() {
   const [formData, setFormData] = useState({
@@ -167,6 +168,26 @@ export default function CheckoutPage() {
 
     const shippingSettings = settings.shipping;
 
+    // City-wise delivery charges
+    if (shippingSettings.type === 'city_wise') {
+      const selectedCity = formData.city;
+      if (selectedCity && shippingSettings.cityCharges) {
+        // Handle both Map and Object formats
+        let cityCharge;
+        if (shippingSettings.cityCharges instanceof Map) {
+          cityCharge = shippingSettings.cityCharges.get(selectedCity);
+        } else if (typeof shippingSettings.cityCharges === 'object') {
+          cityCharge = shippingSettings.cityCharges[selectedCity];
+        }
+
+        if (cityCharge !== undefined && cityCharge !== null && cityCharge > 0) {
+          return Math.round(cityCharge);
+        }
+      }
+      // Use default charge if city not found or no city selected
+      return Math.round(shippingSettings.value || 0);
+    }
+
     // Free shipping above threshold (both threshold and subtotal are in PKR)
     if (shippingSettings.type === 'free_above' && shippingSettings.freeShippingAbove) {
       const threshold = shippingSettings.freeShippingAbove || 0;
@@ -186,15 +207,28 @@ export default function CheckoutPage() {
     return Math.round(shippingSettings.value || 0);
   };
 
-  const tax = calculateTax();
-  const shipping = calculateShipping();
+  // Calculate tax - memoized based on subtotal and settings
+  const tax = useMemo(() => calculateTax(), [subtotal, settings?.tax]);
+
+  // Calculate shipping - memoized based on city, subtotal, and settings
+  // This will recalculate whenever formData.city changes
+  const shipping = useMemo(() => calculateShipping(), [
+    formData.city,
+    subtotal,
+    settings?.shipping
+  ]);
 
   // Calculate discount amount (discount is percentage in cart, convert to actual PKR amount)
-  const discountAmount = discount > 0
-    ? Math.round((subtotal * discount) / 100)
-    : 0;
+  const discountAmount = useMemo(() => {
+    return discount > 0
+      ? Math.round((subtotal * discount) / 100)
+      : 0;
+  }, [subtotal, discount]);
 
-  const finalTotal = subtotal + shipping + tax - discountAmount;
+  // Calculate final total - memoized based on all dependencies
+  const finalTotal = useMemo(() => {
+    return subtotal + shipping + tax - discountAmount;
+  }, [subtotal, shipping, tax, discountAmount]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -274,13 +308,17 @@ export default function CheckoutPage() {
         type: settings.shipping.type,
         value: settings.shipping.value || 0,
         freeShippingAbove: settings.shipping.freeShippingAbove || 0,
-        description: settings.shipping.description || 'Standard Shipping'
+        description: settings.shipping.description || 'Standard Shipping',
+        cityCharges: settings.shipping.cityCharges || {},
+        selectedCity: formData.city // Include selected city for reference
       } : {
         enabled: false,
         type: 'fixed',
         value: 0,
         freeShippingAbove: 0,
-        description: 'Standard Shipping'
+        description: 'Standard Shipping',
+        cityCharges: {},
+        selectedCity: formData.city
       };
 
       // Create order
@@ -493,14 +531,25 @@ export default function CheckoutPage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
-                    <input
-                      type="text"
+                    <select
                       name="city"
                       value={formData.city}
                       onChange={handleInputChange}
                       required
-                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gray-900"
-                    />
+                      className="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-gray-900 bg-white"
+                    >
+                      <option value="">Select City</option>
+                      {SORTED_CITIES.map((city) => (
+                        <option key={city} value={city}>
+                          {city}
+                        </option>
+                      ))}
+                    </select>
+                    {formData.city && settings?.shipping?.type === 'city_wise' && (
+                      <p className="text-xs text-gray-500 mt-1">
+                        Delivery Charge: {formatPrice(shipping)}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">Postal Code</label>
@@ -702,7 +751,7 @@ export default function CheckoutPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
-                            <h4 className="text-sm font-medium text-gray-900 truncate">{item.name}</h4>
+                            <h4 className="text-sm font-medium text-gray-900 truncate max-w-52">{item.name}</h4>
                             <p className="text-xs text-gray-500">Qty: {item.quantity}</p>
                             {(item.size || item.color) && (
                               <div className="flex items-center space-x-1 mt-1">

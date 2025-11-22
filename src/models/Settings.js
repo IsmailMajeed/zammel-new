@@ -33,14 +33,14 @@ const SettingsSchema = new mongoose.Schema(
       },
       type: {
         type: String,
-        enum: ['fixed', 'percentage', 'free_above'],
+        enum: ['fixed', 'percentage', 'free_above', 'city_wise'],
         default: 'fixed'
       },
       value: {
         type: Number,
-        required: true,
+        required: false,
         min: 0,
-        default: 500 // PKR 500 default shipping
+        default: 500 // PKR 500 default shipping (used when city_wise is not set)
       },
       freeShippingAbove: {
         type: Number,
@@ -51,6 +51,15 @@ const SettingsSchema = new mongoose.Schema(
         type: String,
         trim: true,
         default: 'Standard Shipping'
+      },
+      // City-wise delivery charges
+      cityCharges: {
+        type: Map,
+        of: {
+          type: Number,
+          min: 0
+        },
+        default: {}
       }
     }
   },

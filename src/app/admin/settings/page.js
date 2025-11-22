@@ -1,10 +1,11 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { FaCog, FaPercentage, FaTruck, FaSave, FaSpinner } from "react-icons/fa";
+import { FaCog, FaPercentage, FaTruck, FaSave, FaSpinner, FaPlus, FaTrash } from "react-icons/fa";
 import { motion } from "framer-motion";
 import { useGetSettingsQuery, useUpdateSettingsMutation } from "@/redux/api/Settings";
 import Swal from "sweetalert2";
+import { SORTED_CITIES } from "@/utils/pakistaniCities";
 
 const Input = ({ className, ...props }) => {
   return (
@@ -48,7 +49,8 @@ export default function SettingsPage() {
     type: 'fixed',
     value: 500,
     freeShippingAbove: 5000,
-    description: 'Standard Shipping'
+    description: 'Standard Shipping',
+    cityCharges: {}
   });
 
   useEffect(() => {
@@ -58,7 +60,10 @@ export default function SettingsPage() {
         setTaxSettings(settings.tax);
       }
       if (settings.shipping) {
-        setShippingSettings(settings.shipping);
+        setShippingSettings({
+          ...settings.shipping,
+          cityCharges: settings.shipping.cityCharges || {}
+        });
       }
     }
   }, [settingsData]);
@@ -305,33 +310,127 @@ export default function SettingsPage() {
                     <option value="fixed">Fixed Amount</option>
                     <option value="percentage">Percentage of Order</option>
                     <option value="free_above">Free Above Threshold</option>
+                    <option value="city_wise">City-wise Delivery Charges</option>
                   </select>
                 </div>
 
-                {/* Shipping Value */}
-                <div>
-                  <label className="block text-sm font-medium mb-2">
-                    Shipping Cost
-                    {shippingSettings.type === 'percentage' ? ' (%)' : ' (PKR)'}
-                  </label>
-                  <Input
-                    type="number"
-                    min="0"
-                    step={shippingSettings.type === 'percentage' ? '0.1' : '1'}
-                    value={shippingSettings.value}
-                    onChange={(e) =>
-                      setShippingSettings({
-                        ...shippingSettings,
-                        value: parseFloat(e.target.value) || 0,
-                      })
-                    }
-                    placeholder={
-                      shippingSettings.type === 'percentage'
-                        ? 'Enter percentage'
-                        : 'Enter amount'
-                    }
-                  />
-                </div>
+                {/* Shipping Value - Only show if not city_wise */}
+                {shippingSettings.type !== 'city_wise' && (
+                  <div>
+                    <label className="block text-sm font-medium mb-2">
+                      Shipping Cost
+                      {shippingSettings.type === 'percentage' ? ' (%)' : ' (PKR)'}
+                    </label>
+                    <Input
+                      type="number"
+                      min="0"
+                      step={shippingSettings.type === 'percentage' ? '0.1' : '1'}
+                      value={shippingSettings.value}
+                      onChange={(e) =>
+                        setShippingSettings({
+                          ...shippingSettings,
+                          value: parseFloat(e.target.value) || 0,
+                        })
+                      }
+                      placeholder={
+                        shippingSettings.type === 'percentage'
+                          ? 'Enter percentage'
+                          : 'Enter amount'
+                      }
+                    />
+                  </div>
+                )}
+
+                {/* City-wise Delivery Charges */}
+                {shippingSettings.type === 'city_wise' && (
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <label className="block text-sm font-medium">
+                        City-wise Delivery Charges (PKR)
+                      </label>
+                      <p className="text-xs text-mutedForeground">
+                        Set different delivery charges for each city
+                      </p>
+                    </div>
+
+                    {/* Default/Other City Charge */}
+                    <div>
+                      <label className="block text-sm font-medium mb-2">
+                        Default Charge (for cities not listed) (PKR)
+                      </label>
+                      <Input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={shippingSettings.value || 500}
+                        onChange={(e) =>
+                          setShippingSettings({
+                            ...shippingSettings,
+                            value: parseFloat(e.target.value) || 0,
+                          })
+                        }
+                        placeholder="Enter default delivery charge"
+                        onFocus={(e) => e.target.select()}
+                      />
+                    </div>
+
+                    {/* City Charges List */}
+                    <div className="space-y-2 max-h-96 overflow-y-auto border border-borderColor rounded-md p-3">
+                      {SORTED_CITIES.map((city) => {
+                        const currentCharge = shippingSettings.cityCharges?.[city] || '';
+                        return (
+                          <div key={city} className="flex items-center gap-2">
+                            <label className="flex-1 text-sm font-medium min-w-[150px]">
+                              {city}:
+                            </label>
+                            <Input
+                              type="number"
+                              min="0"
+                              step="1"
+                              value={currentCharge}
+                              onChange={(e) => {
+                                const newCityCharges = {
+                                  ...shippingSettings.cityCharges,
+                                };
+                                const value = parseFloat(e.target.value);
+                                if (value && value > 0) {
+                                  newCityCharges[city] = value;
+                                } else {
+                                  delete newCityCharges[city];
+                                }
+                                setShippingSettings({
+                                  ...shippingSettings,
+                                  cityCharges: newCityCharges,
+                                });
+                              }}
+                              placeholder="Enter charge (PKR)"
+                              className="flex-1"
+                            />
+                            {currentCharge && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const newCityCharges = {
+                                    ...shippingSettings.cityCharges,
+                                  };
+                                  delete newCityCharges[city];
+                                  setShippingSettings({
+                                    ...shippingSettings,
+                                    cityCharges: newCityCharges,
+                                  });
+                                }}
+                                className="text-red-500 hover:text-red-700 p-1"
+                                title="Remove charge"
+                              >
+                                <FaTrash className="text-sm" />
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Free Shipping Above */}
                 {shippingSettings.type === 'free_above' && (
@@ -395,8 +494,8 @@ export default function SettingsPage() {
             fixed amount.
           </li>
           <li>
-            <strong>Shipping:</strong> Fixed amount, percentage of order, or free
-            shipping above a threshold.
+            <strong>Shipping:</strong> Fixed amount, percentage of order, free
+            shipping above a threshold, or city-wise delivery charges.
           </li>
           <li>
             Changes will apply to all new orders. Existing orders will not be

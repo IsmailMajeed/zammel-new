@@ -43,3 +43,19 @@ export const CUSTOMER_ENDPOINTS = {
   GET_ALL: `customers`,
   GET_BY_ID: (id) => `customers/${id}`,
 };
+
+export const NOTIFICATION_ENDPOINTS = {
+  GET_ALL: `notifications`,
+  GET_BY_ID: (id) => `notifications/${id}`,
+  MARK_READ: (id) => `notifications/${id}`,
+  MARK_ALL_READ: `notifications/mark-all-read`,
+  DELETE: (id) => `notifications/${id}`,
+};
+
+export const ADMIN_NOTIFICATION_ENDPOINTS = {
+  GET_ALL: `admin/notifications`,
+  GET_BY_ID: (id) => `admin/notifications/${id}`,
+  MARK_READ: (id) => `admin/notifications/${id}`,
+  MARK_ALL_READ: `admin/notifications/mark-all-read`,
+  DELETE: (id) => `admin/notifications/${id}`,
+};

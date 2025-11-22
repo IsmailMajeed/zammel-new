@@ -16,6 +16,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { useLogoutMutation } from "@/redux/api/Auth"
 import Image from "next/image";
 import BRAND from "@/utils/brandConstants";
+import { useGetAdminNotificationsQuery, useMarkAdminNotificationReadMutation } from "@/redux/api/Notifications";
 // import ThemeToggleButton from "../ToggleThemeButton";
 
 const navigations = [
@@ -59,43 +60,24 @@ const navigations = [
 ];
 
 
-const notifications = [
-  {
-    id: 1,
-    title: "New Order",
-    description: "Order #ORD-001 has been placed by Ahmed Khan",
-    icon: <FaShoppingCart className="text-gray-600 dark:text-gray-300" />,
-    isRead: false
-  },
-  {
-    id: 2,
-    title: "Low Stock Alert",
-    description: "Wireless Headphones stock is running low (5 items left)",
-    icon: <FaBox className="text-gray-600 dark:text-gray-300" />,
-    isRead: false
-  },
-  {
-    id: 3,
-    title: "Order Shipped",
-    description: "Order #ORD-002 has been shipped successfully",
-    icon: <FaFileInvoice className="text-gray-600 dark:text-gray-300" />,
-    isRead: true
-  },
-  {
-    id: 4,
-    title: "New Customer",
-    description: "Sara Ali has registered as a new customer",
-    icon: <FaUsers className="text-gray-600 dark:text-gray-300" />,
-    isRead: true
-  },
-  {
-    id: 5,
-    title: "Payment Received",
-    description: "Payment of $299.00 received for Order #ORD-003",
-    icon: <FaChartLine className="text-gray-600 dark:text-gray-300" />,
-    isRead: true
-  },
-]
+// Helper function to get notification icon
+const getNotificationIcon = (type) => {
+  const icons = {
+    order_placed: <FaShoppingCart className="text-gray-600 dark:text-gray-300" />,
+    order_processing: <FaBox className="text-gray-600 dark:text-gray-300" />,
+    order_shipped: <FaFileInvoice className="text-gray-600 dark:text-gray-300" />,
+    order_delivered: <FaFileInvoice className="text-gray-600 dark:text-gray-300" />,
+    order_cancelled: <FaFileInvoice className="text-gray-600 dark:text-gray-300" />,
+    payment_paid: <FaChartLine className="text-gray-600 dark:text-gray-300" />,
+    payment_failed: <FaFileInvoice className="text-gray-600 dark:text-gray-300" />,
+    payment_refunded: <FaChartLine className="text-gray-600 dark:text-gray-300" />,
+    product_back_in_stock: <FaBox className="text-gray-600 dark:text-gray-300" />,
+    price_drop: <FaChartLine className="text-gray-600 dark:text-gray-300" />,
+    new_product: <FaBox className="text-gray-600 dark:text-gray-300" />,
+    system: <FaBell className="text-gray-600 dark:text-gray-300" />
+  };
+  return icons[type] || <FaBell className="text-gray-600 dark:text-gray-300" />;
+};
 
 export default function Navbar() {
   const dispatch = useDispatch();
@@ -106,6 +88,27 @@ export default function Navbar() {
   const [isProfileOpen, setIsProfileOpen] = useState(false)
   const dropdownRef = useRef(null);
   const notificationRef = useRef(null);
+  const router = useRouter();
+  const pathname = usePathname();
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Only fetch notifications on client side to prevent hydration issues
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Admin notifications
+  const { data: notificationsData, refetch: refetchNotifications } = useGetAdminNotificationsQuery({
+    read: 'false',
+    limit: 10
+  }, {
+    skip: !adminUser || !isMounted, // Only fetch if admin is logged in and component is mounted
+    pollingInterval: 30000 // Poll every 30 seconds for new notifications
+  });
+  const [markNotificationRead] = useMarkAdminNotificationReadMutation();
+
+  const notifications = notificationsData?.data?.notifications || [];
+  const unreadCount = notificationsData?.data?.unreadCount || 0;
 
   // const [isDarkMode, setIsDarkMode] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
@@ -126,16 +129,25 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleNotificationClick = (notification) => {
+  const handleNotificationClick = async (notification) => {
     setSelectedNotification(notification);
-    notification.isRead = true;
-    // Here you can add API call to mark notification as read
+
+    // Mark as read if unread
+    if (!notification.read) {
+      try {
+        await markNotificationRead({ id: notification._id, read: true }).unwrap();
+        refetchNotifications();
+      } catch (error) {
+        console.error('Failed to mark notification as read:', error);
+      }
+    }
+
+    // Navigate to link if available
+    if (notification.link) {
+      router.push(notification.link);
+      setIsNotificationsOpen(false);
+    }
   };
-
-  const unreadCount = notifications.filter(notification => !notification.isRead).length;
-
-  const router = useRouter();
-  const pathname = usePathname();
 
   const handleSearch = useCallback((query) => {
     setSearchQuery(query);
@@ -377,21 +389,21 @@ export default function Navbar() {
             >
               <FaBell className="text-lg text-primaryForeground" />
               <AnimatePresence>
-                {unreadCount > 0 && (
+                {isMounted && unreadCount > 0 && (
                   <motion.span
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     exit={{ scale: 0 }}
                     className="absolute top-1 right-1 bg-red-500 text-white text-[8px] rounded-full w-3 h-3 flex items-center justify-center"
                   >
-                    {unreadCount}
+                    {unreadCount > 99 ? '99+' : unreadCount}
                   </motion.span>
                 )}
               </AnimatePresence>
             </motion.button>
 
             <AnimatePresence>
-              {isNotificationsOpen && (
+              {isMounted && isNotificationsOpen && (
                 <motion.div
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -400,30 +412,43 @@ export default function Navbar() {
                   className="absolute top-full right-0 w-72 bg-popoverBackground shadow-lg rounded-md mt-2 z-50 max-h-[350px] overflow-y-auto"
                 >
                   {notifications.length > 0 ? (
-                    notifications.map((notification, index) => (
-                      <motion.div
-                        key={notification.id}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        onClick={() => handleNotificationClick(notification)}
-                        className={`flex items-center gap-3 p-3 cursor-pointer transition-colors duration-150 hover:bg-mutedBackground hover:bg-opacity-10
-                    ${!notification.isRead ? 'bg-mutedBackground bg-opacity-5' : ''}`}
-                      >
-                        <span className="flex-shrink-0">
-                          {notification.icon}
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <h4 className="text-sm font-medium text-popoverForeground">{notification.title}</h4>
-                          <p className="text-xs text-popoverForeground opacity-70 truncate">
-                            {notification.description}
-                          </p>
+                    <>
+                      {notifications.map((notification, index) => (
+                        <motion.div
+                          key={notification._id}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          onClick={() => handleNotificationClick(notification)}
+                          className={`flex items-center gap-3 p-3 cursor-pointer transition-colors duration-150 hover:bg-mutedBackground hover:bg-opacity-10
+                      ${!notification.read ? 'bg-mutedBackground bg-opacity-5' : ''}`}
+                        >
+                          <span className="flex-shrink-0">
+                            {getNotificationIcon(notification.type)}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-sm font-medium text-popoverForeground">{notification.title}</h4>
+                            <p className="text-xs text-popoverForeground opacity-70 truncate">
+                              {notification.message}
+                            </p>
+                          </div>
+                          {!notification.read && (
+                            <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
+                          )}
+                        </motion.div>
+                      ))}
+                      {unreadCount > notifications.length && (
+                        <div className="p-3 border-t border-borderColor">
+                          <Link
+                            href="/admin"
+                            onClick={() => setIsNotificationsOpen(false)}
+                            className="text-sm text-primary hover:text-primaryHover font-medium text-center block"
+                          >
+                            View all notifications ({unreadCount})
+                          </Link>
                         </div>
-                        {!notification.isRead && (
-                          <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0" />
-                        )}
-                      </motion.div>
-                    ))
+                      )}
+                    </>
                   ) : (
                     <div className="p-4 text-center text-popoverForeground opacity-70">
                       No notifications

@@ -90,6 +90,26 @@ export const PUT = requireAdmin(async (request) => {
         settings.shipping.freeShippingAbove = shipping.freeShippingAbove;
       }
       if (shipping.description !== undefined) settings.shipping.description = shipping.description;
+
+      // Update city charges if provided
+      if (shipping.cityCharges !== undefined) {
+        // Convert object to Map for MongoDB
+        if (settings.shipping.cityCharges === undefined || !settings.shipping.cityCharges) {
+          settings.shipping.cityCharges = new Map();
+        }
+
+        // Clear existing charges
+        settings.shipping.cityCharges.clear();
+
+        // Add new charges
+        if (typeof shipping.cityCharges === 'object' && shipping.cityCharges !== null) {
+          Object.entries(shipping.cityCharges).forEach(([city, charge]) => {
+            if (charge && charge > 0) {
+              settings.shipping.cityCharges.set(city, charge);
+            }
+          });
+        }
+      }
     }
 
     await settings.save();

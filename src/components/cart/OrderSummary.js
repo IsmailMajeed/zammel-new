@@ -11,10 +11,11 @@ export default function OrderSummary() {
     const { items, total, itemCount, couponCode, discount } = useSelector(state => state.cart);
 
     const formatPrice = (price) => {
-        return new Intl.NumberFormat('en-US', {
+        return new Intl.NumberFormat('en-PK', {
             style: 'currency',
-            currency: 'USD'
-        }).format(price);
+            currency: 'PKR',
+            minimumFractionDigits: 0,
+        }).format(Math.round(price));
     };
 
     const handleClearCart = () => {

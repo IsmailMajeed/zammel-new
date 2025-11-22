@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import { useSetAccountMutation, useChangePasswordMutation } from '@/redux/api/Auth';
 import { setUser } from '@/redux/slices/User';
+import Notifications from '@/components/Notifications';
 
 export default function ProfilePage() {
   const { user } = useSelector((state) => state.user);
@@ -111,6 +112,16 @@ export default function ProfilePage() {
               >
                 Security
               </button>
+              <button
+                type="button"
+                className="w-full rounded-lg border border-gray-200 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                onClick={() => {
+                  const el = document.getElementById('notifications');
+                  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+              >
+                Notifications
+              </button>
             </div>
           </div>
         </aside>
@@ -209,6 +220,10 @@ export default function ProfilePage() {
                 </button>
               </div>
             </form>
+          </div>
+
+          <div id="notifications" className="bg-white rounded-xl shadow-sm border border-gray-100">
+            <Notifications />
           </div>
         </section>
       </div>

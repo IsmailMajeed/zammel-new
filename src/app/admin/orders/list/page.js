@@ -84,7 +84,7 @@ const TableCell = ({ children, className, ...props }) => {
 export default function OrdersListPage() {
   const router = useRouter();
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("pending");
   const [paymentFilter, setPaymentFilter] = useState("all");
   const [page, setPage] = useState(1);
   const limit = 10;
@@ -466,7 +466,7 @@ export default function OrdersListPage() {
           <option value="pending">Pending</option>
           <option value="processing">Processing</option>
           <option value="shipped">Shipped</option>
-          <option value="completed">Completed</option>
+          {/* <option value="completed">Completed</option> */}
           <option value="cancelled">Cancelled</option>
         </select>
 

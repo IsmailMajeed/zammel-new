@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useGetDashboardStatsQuery } from "@/redux/api/Dashboard";
 import { useRouter } from "next/navigation";
 import useRefetchOnWindowFocus from "@/hooks/useRefetchOnWindowFocus";
+import AdminNotifications from "@/components/AdminNotifications";
 
 export default function Home() {
   const router = useRouter();
@@ -165,7 +166,7 @@ export default function Home() {
       >
         <div className="flex justify-between items-center mb-4">
           <h2 className="text-xl font-semibold">Recent Orders</h2>
-          <Link href="/admin/orders" className="text-primary hover:text-primaryHover text-sm font-medium">
+          <Link href="/admin/orders/list" className="text-primary hover:text-primaryHover text-sm font-medium">
             View All
           </Link>
         </div>
@@ -215,6 +216,16 @@ export default function Home() {
             </tbody>
           </table>
         </div>
+      </motion.div>
+
+      {/* Admin Notifications */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.8 }}
+        className="bg-cardBackground p-6 rounded-lg shadow"
+      >
+        <AdminNotifications />
       </motion.div>
     </div>
   );

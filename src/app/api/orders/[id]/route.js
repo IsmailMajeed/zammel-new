@@ -181,6 +181,28 @@ export const PUT = requireAdmin(async (request, { params }) => {
         // Log error but don't fail order update
         console.error('Failed to send order status update email:', emailError);
       }
+
+      // Create notification for order status change (only for logged-in users)
+      if (populatedOrder.user) {
+        try {
+          const { createOrderNotification } = await import('@/utils/createNotification');
+          await createOrderNotification(populatedOrder, `order_${orderStatus}`);
+        } catch (notificationError) {
+          console.error('Failed to create order status notification:', notificationError);
+          // Don't fail order update if notification fails
+        }
+      }
+    }
+
+    // Create notification for payment status change (only for logged-in users)
+    if (paymentStatus && paymentStatus !== order.paymentStatus && populatedOrder.user) {
+      try {
+        const { createOrderNotification } = await import('@/utils/createNotification');
+        await createOrderNotification(populatedOrder, `payment_${paymentStatus}`);
+      } catch (notificationError) {
+        console.error('Failed to create payment status notification:', notificationError);
+        // Don't fail order update if notification fails
+      }
     }
 
     return NextResponse.json(

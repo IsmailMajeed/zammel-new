@@ -116,6 +116,32 @@ export default function ProductCard({ product }) {
   const cartQuantity = cartItems.find(item => item.id === cartItemId)?.quantity || 0;
   const availableStock = stockQuantity - cartQuantity;
 
+  // Calculate price based on current variant
+  const currentPrice = useMemo(() => {
+    if (currentVariant) {
+      const originalPrice = currentVariant.price || 0;
+      const discount = currentVariant.discount || 0;
+      if (discount > 0) {
+        return Math.round(originalPrice * (1 - discount / 100));
+      }
+      return Math.round(originalPrice);
+    }
+    return price; // Fallback to product price
+  }, [currentVariant, price]);
+
+  // Calculate compare at price (original price before discount) based on current variant
+  const currentCompareAtPrice = useMemo(() => {
+    if (currentVariant) {
+      const originalPrice = currentVariant.price || 0;
+      const discount = currentVariant.discount || 0;
+      if (discount > 0) {
+        return Math.round(originalPrice);
+      }
+      return null;
+    }
+    return compareAtPrice; // Fallback to product compareAtPrice
+  }, [currentVariant, compareAtPrice]);
+
   const formatPrice = (price) => {
     return new Intl.NumberFormat('en-PK', {
       style: 'currency',
@@ -141,7 +167,7 @@ export default function ProductCard({ product }) {
       id: cartItemId,
       productId: id,
       name: title,
-      price,
+      price: currentPrice,
       images: [image],
       brand: BRAND.name,
       size: selectedSize,
@@ -167,7 +193,7 @@ export default function ProductCard({ product }) {
     <div className="product-card group animate-fade-in">
       <div className="relative overflow-hidden">
         {/* Product Image */}
-        <div className="relative aspect-square">
+        <div className="relative aspect-square overflow-hidden">
           <Image
             src={currentImage}
             alt={title}
@@ -224,7 +250,7 @@ export default function ProductCard({ product }) {
         {/* Product Info */}
         <div className="p-4">
           <Link href={`/products/${id}`}>
-            <h3 className="text-lg font-medium text-gray-900 hover:text-blue-500 transition-colors mb-2">
+            <h3 className="text-lg font-medium text-gray-900 hover:text-blue-500 transition-colors mb-2 line-clamp-1">
               {title}
             </h3>
           </Link>
@@ -317,18 +343,18 @@ export default function ProductCard({ product }) {
 
           {/* Price */}
           <div className="flex items-center space-x-2">
-            {compareAtPrice && compareAtPrice > price ? (
+            {currentCompareAtPrice && currentCompareAtPrice > currentPrice ? (
               <>
                 <span className="text-lg font-semibold text-gray-900">
-                  {formatPrice(price)}
+                  {formatPrice(currentPrice)}
                 </span>
                 <span className="text-sm text-gray-500 line-through">
-                  {formatPrice(compareAtPrice)}
+                  {formatPrice(currentCompareAtPrice)}
                 </span>
               </>
             ) : (
               <span className="text-lg font-semibold text-gray-900">
-                {formatPrice(price)}
+                {formatPrice(currentPrice)}
               </span>
             )}
           </div>

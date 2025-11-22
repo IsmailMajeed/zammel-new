@@ -124,6 +124,33 @@ export default function ProductsListPage() {
     return null;
   };
 
+  // Helper function to calculate discounted price range
+  const getDiscountedPriceRange = (product) => {
+    if (!product.variants || product.variants.length === 0) {
+      return { min: null, max: null, hasDiscount: false };
+    }
+
+    const discountedPrices = product.variants
+      .map((variant) => {
+        const price = parseFloat(variant.price) || 0;
+        const discount = parseFloat(variant.discount) || 0;
+        if (price > 0 && discount > 0) {
+          return Math.round(price * (1 - discount / 100));
+        }
+        return null;
+      })
+      .filter((price) => price !== null);
+
+    if (discountedPrices.length === 0) {
+      return { min: null, max: null, hasDiscount: false };
+    }
+
+    const min = Math.min(...discountedPrices);
+    const max = Math.max(...discountedPrices);
+
+    return { min, max, hasDiscount: true };
+  };
+
   const handleDelete = async (product) => {
     const result = await Swal.fire({
       title: 'Are you sure?',
@@ -339,11 +366,32 @@ export default function ProductsListPage() {
                         {product.category?.name || 'N/A'}
                       </span>
                     </TableCell>
-                    <TableCell className="font-bold">
-                      ₨{product.priceRange?.min?.toLocaleString() || 0}
-                      {product.priceRange?.min !== product.priceRange?.max && (
-                        <> - ₨{product.priceRange?.max?.toLocaleString()}</>
-                      )}
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <div className="font-bold">
+                          ₨{Math.round(product.priceRange?.min || 0).toLocaleString()}
+                          {product.priceRange?.min !== product.priceRange?.max && (
+                            <> - ₨{Math.round(product.priceRange?.max || 0).toLocaleString()}</>
+                          )}
+                        </div>
+                        {(() => {
+                          const discountedRange = getDiscountedPriceRange(product);
+                          if (discountedRange.hasDiscount) {
+                            return (
+                              <div className="text-sm">
+                                <span className="text-green-600 font-semibold">
+                                  ₨{Math.round(discountedRange.min).toLocaleString()}
+                                  {discountedRange.min !== discountedRange.max && (
+                                    <> - ₨{Math.round(discountedRange.max).toLocaleString()}</>
+                                  )}
+                                </span>
+                                <span className="text-xs text-gray-500 ml-1">(After Discount)</span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <span className={`px-2 py-1 rounded-full text-xs whitespace-nowrap ${product.totalStock > 10
@@ -369,13 +417,13 @@ export default function ProductsListPage() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-2 items-center">
-                        <motion.button
+                        {/* <motion.button
                           whileHover={{ scale: 1.05 }}
                           whileTap={{ scale: 0.95 }}
                           className="text-blue-600 hover:text-blue-800 p-1"
                         >
                           <FaEye />
-                        </motion.button>
+                        </motion.button> */}
                         <Link href={`/admin/products/edit/${product._id}`}>
                           <motion.button
                             whileHover={{ scale: 1.05 }}

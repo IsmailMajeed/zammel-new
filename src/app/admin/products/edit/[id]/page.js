@@ -69,6 +69,7 @@ export default function EditProductPage() {
       sku: "",
       images: [],
       discount: 0,
+      discountedPrice: "",
     },
   ]);
 
@@ -89,16 +90,25 @@ export default function EditProductPage() {
 
       if (product.variants && product.variants.length > 0) {
         setVariants(
-          product.variants.map((v) => ({
-            color: v.color || "",
-            colorCode: v.colorCode || "",
-            size: v.size || "",
-            price: v.price?.toString() || "",
-            quantity: v.quantity?.toString() || "",
-            sku: v.sku || "",
-            images: v.images || [],
-            discount: v.discount || 0,
-          }))
+          product.variants.map((v) => {
+            const price = parseFloat(v.price) || 0;
+            const discount = parseFloat(v.discount) || 0;
+            const discountedPrice = price > 0 && discount > 0
+              ? Math.round(price * (1 - discount / 100)).toString()
+              : price > 0 ? Math.round(price).toString() : "";
+
+            return {
+              color: v.color || "",
+              colorCode: v.colorCode || "",
+              size: v.size || "",
+              price: price.toString(),
+              quantity: v.quantity?.toString() || "",
+              sku: v.sku || "",
+              images: v.images || [],
+              discount: discount,
+              discountedPrice: discountedPrice,
+            };
+          })
         );
       }
     }
@@ -115,6 +125,39 @@ export default function EditProductPage() {
   const handleVariantChange = (index, field, value) => {
     const newVariants = [...variants];
     newVariants[index][field] = value;
+
+    // Auto-calculate discounted price when discount changes
+    if (field === "discount") {
+      const discountValue = parseFloat(value) || 0;
+      const priceValue = parseFloat(newVariants[index].price) || 0;
+      if (priceValue > 0) {
+        const calculatedDiscountedPrice = priceValue * (1 - discountValue / 100);
+        newVariants[index].discountedPrice = Math.round(calculatedDiscountedPrice).toString();
+      }
+    }
+
+    // Auto-calculate discount when discounted price changes
+    if (field === "discountedPrice") {
+      const discountedPriceValue = parseFloat(value) || 0;
+      const priceValue = parseFloat(newVariants[index].price) || 0;
+      if (priceValue > 0 && discountedPriceValue >= 0) {
+        const calculatedDiscount = ((priceValue - discountedPriceValue) / priceValue) * 100;
+        newVariants[index].discount = Math.max(0, Math.min(100, calculatedDiscount)).toFixed(2);
+      }
+    }
+
+    // Auto-calculate discounted price when price changes (if discount exists)
+    if (field === "price") {
+      const priceValue = parseFloat(value) || 0;
+      const discountValue = parseFloat(newVariants[index].discount) || 0;
+      if (priceValue > 0 && discountValue > 0) {
+        const calculatedDiscountedPrice = priceValue * (1 - discountValue / 100);
+        newVariants[index].discountedPrice = Math.round(calculatedDiscountedPrice).toString();
+      } else if (priceValue > 0) {
+        newVariants[index].discountedPrice = Math.round(priceValue).toString();
+      }
+    }
+
     setVariants(newVariants);
   };
 
@@ -130,6 +173,7 @@ export default function EditProductPage() {
         sku: "",
         images: [],
         discount: 0,
+        discountedPrice: "",
       },
     ]);
   };
@@ -482,12 +526,30 @@ export default function EditProductPage() {
                   </label>
                   <Input
                     type="number"
+                    step="0.01"
                     min="0"
                     max="100"
                     value={variant.discount}
                     onChange={(e) => handleVariantChange(index, "discount", e.target.value)}
-                    placeholder="0"
+                    placeholder="0.00"
                   />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-cardForeground mb-2">
+                    Price After Discount
+                  </label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={variant.discountedPrice}
+                    onChange={(e) => handleVariantChange(index, "discountedPrice", e.target.value)}
+                    placeholder="0.00"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Auto-calculated from discount
+                  </p>
                 </div>
               </div>
 

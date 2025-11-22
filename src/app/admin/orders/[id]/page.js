@@ -286,6 +286,7 @@ export default function OrderDetailsPage() {
                   <option value="pending">Pending</option>
                   <option value="processing">Processing</option>
                   <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
                   <option value="cancelled">Cancelled</option>
                 </select>
               </div>
@@ -363,11 +364,11 @@ export default function OrderDetailsPage() {
                         <p className="text-sm text-cardForeground/60">Quantity: {itemQuantity}</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold">₨{itemPrice.toLocaleString('en-PK')}</p>
+                        <p className="font-bold">₨{Math.round(itemPrice).toLocaleString('en-PK')}</p>
                         <p className="text-sm text-cardForeground/60">each</p>
                       </div>
                       <div className="text-right">
-                        <p className="font-bold text-lg">₨{itemTotal.toLocaleString('en-PK')}</p>
+                        <p className="font-bold text-lg">₨{Math.round(itemTotal).toLocaleString('en-PK')}</p>
                         <p className="text-sm text-cardForeground/60">total</p>
                       </div>
                     </motion.div>
@@ -489,28 +490,28 @@ export default function OrderDetailsPage() {
             <div className="space-y-3">
               <div className="flex justify-between">
                 <span className="text-sm text-cardForeground/60">Subtotal:</span>
-                <span className="font-medium">₨{(order.subtotal || 0).toLocaleString('en-PK')}</span>
+                <span className="font-medium">₨{Math.round(order.subtotal || 0).toLocaleString('en-PK')}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-sm text-cardForeground/60">Shipping:</span>
-                <span className="font-medium">₨{(order.shipping || 0).toLocaleString('en-PK')}</span>
+                <span className="font-medium">₨{Math.round(order.shipping || 0).toLocaleString('en-PK')}</span>
               </div>
               {order.tax > 0 && (
                 <div className="flex justify-between">
                   <span className="text-sm text-cardForeground/60">Tax:</span>
-                  <span className="font-medium">₨{(order.tax || 0).toLocaleString('en-PK')}</span>
+                  <span className="font-medium">₨{Math.round(order.tax || 0).toLocaleString('en-PK')}</span>
                 </div>
               )}
               {order.discount > 0 && (
                 <div className="flex justify-between text-green-600">
                   <span className="text-sm">Discount:</span>
-                  <span className="font-medium">-₨{(order.discount || 0).toLocaleString('en-PK')}</span>
+                  <span className="font-medium">-₨{Math.round(order.discount || 0).toLocaleString('en-PK')}</span>
                 </div>
               )}
               <div className="border-t pt-3">
                 <div className="flex justify-between">
                   <span className="font-semibold">Total:</span>
-                  <span className="font-bold text-lg">₨{(order.total || 0).toLocaleString('en-PK')}</span>
+                  <span className="font-bold text-lg">₨{Math.round(order.total || 0).toLocaleString('en-PK')}</span>
                 </div>
               </div>
             </div>

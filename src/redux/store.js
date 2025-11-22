@@ -11,6 +11,7 @@ import { settingsApi } from "./api/Settings";
 import { dashboardApi } from "./api/Dashboard";
 import { customersApi } from "./api/Customers";
 import { newsletterApi } from "./api/Newsletter";
+import { notificationsApi, adminNotificationsApi } from "./api/Notifications";
 import userReducer from "./slices/User";
 import adminUserReducer from "./slices/AdminUser";
 import cartReducer from "./slices/Cart";
@@ -24,7 +25,7 @@ const persistConfig = {
   key: "root",
   storage,
   whitelist: ["user", "adminUser", "cart", "wishlist"], // Only persist these slices
-  blacklist: ["authApi", "productsApi", "categoriesApi", "ordersApi", "settingsApi", "dashboardApi", "customersApi", "newsletterApi"], // Don't persist API cache
+  blacklist: ["authApi", "productsApi", "categoriesApi", "ordersApi", "settingsApi", "dashboardApi", "customersApi", "newsletterApi", "notificationsApi", "adminNotificationsApi"], // Don't persist API cache
 };
 
 const rootReducer = combineReducers({
@@ -43,6 +44,8 @@ const rootReducer = combineReducers({
   [dashboardApi.reducerPath]: dashboardApi.reducer,
   [customersApi.reducerPath]: customersApi.reducer,
   [newsletterApi.reducerPath]: newsletterApi.reducer,
+  [notificationsApi.reducerPath]: notificationsApi.reducer,
+  [adminNotificationsApi.reducerPath]: adminNotificationsApi.reducer,
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
@@ -63,6 +66,8 @@ const store = configureStore({
       dashboardApi.middleware,
       customersApi.middleware,
       newsletterApi.middleware,
+      notificationsApi.middleware,
+      adminNotificationsApi.middleware,
     ),
 });
 
