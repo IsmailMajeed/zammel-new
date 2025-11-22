@@ -441,6 +441,7 @@ export default function ProductPage() {
                 <button
                   onClick={() => handleQuantityChange(quantity - 1)}
                   disabled={quantity <= 1}
+                  aria-label="Decrease quantity"
                   className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Minus className="w-4 h-4" />
@@ -449,6 +450,7 @@ export default function ProductPage() {
                 <button
                   onClick={() => handleQuantityChange(quantity + 1)}
                   disabled={quantity >= availableStock || availableStock <= 0}
+                  aria-label="Increase quantity"
                   className="p-2 border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <Plus className="w-4 h-4" />

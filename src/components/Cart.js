@@ -204,7 +204,10 @@ const Cart = () => {
                             sizes="80px"
                           />
                           {/* Wishlist Button */}
-                          <button className="absolute top-1 right-1 p-1 bg-white/80 backdrop-blur-sm rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-white">
+                          <button
+                            aria-label={`Add ${item.name} to wishlist`}
+                            className="absolute top-1 right-1 p-1 bg-white/80 backdrop-blur-sm rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-200 hover:bg-white"
+                          >
                             <Heart className="w-3 h-3 text-gray-500 hover:text-red-500 transition-colors" />
                           </button>
                         </div>
@@ -249,6 +252,7 @@ const Cart = () => {
                           <div className="flex items-center bg-gray-100 rounded-lg p-1">
                             <button
                               onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
+                              aria-label={`Decrease quantity of ${item.name}`}
                               className="p-2 hover:bg-white rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               disabled={item.quantity <= 1}
                             >
@@ -259,6 +263,7 @@ const Cart = () => {
                             </span>
                             <button
                               onClick={() => handleQuantityChange(item.id, item.quantity + 1)}
+                              aria-label={`Increase quantity of ${item.name}`}
                               className="p-2 hover:bg-white rounded-md transition-colors"
                             >
                               <Plus className="w-3 h-3" />
@@ -267,6 +272,7 @@ const Cart = () => {
 
                           <button
                             onClick={() => handleRemoveItem(item.id)}
+                            aria-label={`Remove ${item.name} from cart`}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors group/remove"
                             title="Remove item"
                           >

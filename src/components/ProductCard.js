@@ -230,6 +230,7 @@ export default function ProductCard({ product }) {
             <div className="flex space-x-2">
               <button
                 onClick={handleWishlistToggle}
+                aria-label={isInWishlist ? `Remove ${title} from wishlist` : `Add ${title} to wishlist`}
                 className={`p-2 rounded-full transition-colors ${isInWishlist
                   ? 'bg-red-500 text-white'
                   : 'bg-white text-gray-900 hover:bg-gray-100'
@@ -239,6 +240,7 @@ export default function ProductCard({ product }) {
               </button>
               <button
                 onClick={handleAddToCart}
+                aria-label={`Add ${title} to cart`}
                 className="bg-white text-gray-900 p-2 rounded-full hover:bg-gray-100 transition-colors"
               >
                 <ShoppingCart className="w-4 h-4" />
