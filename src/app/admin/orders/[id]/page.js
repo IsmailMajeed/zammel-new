@@ -40,7 +40,7 @@ export default function OrderDetailsPage() {
       pending: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Pending", icon: FaTimes },
       processing: { bg: "bg-blue-100", text: "text-blue-800", label: "Processing", icon: FaBox },
       shipped: { bg: "bg-purple-100", text: "text-purple-800", label: "Shipped", icon: FaTruck },
-      completed: { bg: "bg-green-100", text: "text-green-800", label: "Completed", icon: FaCheck },
+      delivered: { bg: "bg-green-100", text: "text-green-800", label: "Delivered", icon: FaCheck },
       cancelled: { bg: "bg-red-100", text: "text-red-800", label: "Cancelled", icon: FaTimes }
     };
 

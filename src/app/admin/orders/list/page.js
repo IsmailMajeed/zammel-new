@@ -145,7 +145,7 @@ export default function OrdersListPage() {
       pending: { bg: "bg-yellow-100", text: "text-yellow-800", label: "Pending" },
       processing: { bg: "bg-blue-100", text: "text-blue-800", label: "Processing" },
       shipped: { bg: "bg-purple-100", text: "text-purple-800", label: "Shipped" },
-      completed: { bg: "bg-green-100", text: "text-green-800", label: "Completed" },
+      delivered: { bg: "bg-green-100", text: "text-green-800", label: "Delivered" },
       cancelled: { bg: "bg-red-100", text: "text-red-800", label: "Cancelled" }
     };
 
@@ -466,7 +466,7 @@ export default function OrdersListPage() {
           <option value="pending">Pending</option>
           <option value="processing">Processing</option>
           <option value="shipped">Shipped</option>
-          {/* <option value="completed">Completed</option> */}
+          <option value="delivered">Delivered</option>
           <option value="cancelled">Cancelled</option>
         </select>
 

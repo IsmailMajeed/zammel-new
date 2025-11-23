@@ -68,6 +68,24 @@ export const PUT = requireAdmin(async (request, { params }) => {
     const body = await request.json();
     const { orderStatus, paymentStatus } = body;
 
+    // Validate orderStatus if provided
+    const validOrderStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    if (orderStatus && !validOrderStatuses.includes(orderStatus)) {
+      return NextResponse.json(
+        errorResponse(`Invalid order status. Valid statuses are: ${validOrderStatuses.join(', ')}`, 400),
+        { status: 400 }
+      );
+    }
+
+    // Validate paymentStatus if provided
+    const validPaymentStatuses = ['pending', 'paid', 'failed', 'refunded'];
+    if (paymentStatus && !validPaymentStatuses.includes(paymentStatus)) {
+      return NextResponse.json(
+        errorResponse(`Invalid payment status. Valid statuses are: ${validPaymentStatuses.join(', ')}`, 400),
+        { status: 400 }
+      );
+    }
+
     const order = await Order.findById(id);
 
     if (!order) {
@@ -153,6 +171,13 @@ export const PUT = requireAdmin(async (request, { params }) => {
     } catch (transactionError) {
       // Rollback transaction on any error
       await session.abortTransaction();
+
+      // Check if it's a Mongoose validation error
+      if (transactionError.name === 'ValidationError') {
+        const validationErrors = Object.values(transactionError.errors || {}).map(err => err.message).join(', ');
+        throw new Error(`Validation failed: ${validationErrors}`);
+      }
+
       throw transactionError;
     } finally {
       // End session
@@ -212,6 +237,12 @@ export const PUT = requireAdmin(async (request, { params }) => {
       { status: 200 }
     );
   } catch (err) {
+    // Handle validation errors with 400 status
+    if (err.name === 'ValidationError' || err.message?.includes('Validation failed') || err.message?.includes('Invalid')) {
+      const message = err?.message || 'Validation failed';
+      return NextResponse.json(errorResponse(message, 400), { status: 400 });
+    }
+
     const message = err?.message || 'Failed to update order';
     return NextResponse.json(errorResponse(message, 500), { status: 500 });
   }
