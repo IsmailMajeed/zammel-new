@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ArrowRight, Truck, CreditCard, Trash2 } from 'lucide-react';
+import { ArrowRight, CreditCard, Trash2 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { clearCart } from '@/redux/slices/Cart';
 import CouponCode from './CouponCode';
@@ -23,9 +23,8 @@ export default function OrderSummary() {
     };
 
     const subtotal = items.reduce((total, item) => total + (item.price * item.quantity), 0);
-    const shipping = subtotal > 50 ? 0 : 5.99;
     const tax = subtotal * 0.08;
-    const finalTotal = subtotal + shipping + tax - discount;
+    const finalTotal = subtotal + tax - discount;
 
     return (
         <div className="lg:col-span-1">
@@ -40,12 +39,6 @@ export default function OrderSummary() {
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Subtotal</span>
                         <span className="text-foreground">{formatPrice(subtotal)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                        <span className="text-muted-foreground">Shipping</span>
-                        <span className="text-foreground">
-                            {shipping === 0 ? 'Free' : formatPrice(shipping)}
-                        </span>
                     </div>
                     <div className="flex justify-between">
                         <span className="text-muted-foreground">Tax</span>
@@ -65,17 +58,6 @@ export default function OrderSummary() {
                     </div>
                 </div>
 
-                {/* Free Shipping Notice */}
-                {subtotal < 50 && (
-                    <div className="mb-6 p-3 bg-primary/10 border border-primary/20 rounded-lg">
-                        <div className="flex items-center space-x-2">
-                            <Truck className="w-4 h-4 text-primary" />
-                            <span className="text-sm text-primary">
-                                Add {formatPrice(50 - subtotal)} more for free shipping!
-                            </span>
-                        </div>
-                    </div>
-                )}
 
                 {/* Checkout Button */}
                 <Link

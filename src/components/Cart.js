@@ -29,7 +29,7 @@ const Cart = () => {
   const dispatch = useDispatch();
   const { items, total, itemCount, isOpen } = useSelector(state => state.cart);
 
-  // Fetch settings for tax and shipping calculation
+  // Fetch settings for tax calculation
   const { data: settingsData } = useGetSettingsQuery();
   const settings = settingsData?.data?.settings;
 
@@ -79,34 +79,9 @@ const Cart = () => {
     }
   };
 
-  // Calculate shipping based on settings
-  const calculateShipping = () => {
-    if (!settings?.shipping?.enabled) return 0;
-
-    const shippingSettings = settings.shipping;
-
-    // Free shipping above threshold (both threshold and subtotal are in PKR)
-    if (shippingSettings.type === 'free_above' && shippingSettings.freeShippingAbove) {
-      const threshold = shippingSettings.freeShippingAbove || 0;
-      if (subtotal >= threshold) {
-        return 0;
-      }
-      // Shipping value is in PKR
-      return Math.round(shippingSettings.value || 0);
-    }
-
-    // Percentage based (value is percentage, subtotal is in PKR)
-    if (shippingSettings.type === 'percentage') {
-      return Math.round((subtotal * shippingSettings.value) / 100);
-    }
-
-    // Fixed amount (value is in PKR)
-    return Math.round(shippingSettings.value || 0);
-  };
-
+  // Shipping charges removed from cart
   const tax = calculateTax();
-  const shipping = calculateShipping();
-  const finalTotal = subtotal + shipping + tax;
+  const finalTotal = subtotal + tax;
 
   return (
     <AnimatePresence>
@@ -299,12 +274,6 @@ const Cart = () => {
                     <span className="text-gray-900">{formatPrice(subtotal)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-600">Shipping</span>
-                    <span className="text-gray-900">
-                      {shipping === 0 ? 'Free' : formatPrice(shipping)}
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
                     <span className="text-gray-600">Tax</span>
                     <span className="text-gray-900">{formatPrice(tax)}</span>
                   </div>
@@ -328,14 +297,6 @@ const Cart = () => {
                   </Link>
                 </div>
 
-                {/* Free Shipping Notice */}
-                {settings?.shipping?.type === 'free_above' &&
-                  settings?.shipping?.freeShippingAbove &&
-                  subtotal < settings.shipping.freeShippingAbove && (
-                    <div className="text-center text-sm text-gray-500">
-                      Add {formatPrice(settings.shipping.freeShippingAbove - subtotal)} more for free shipping!
-                    </div>
-                  )}
               </div>
             )}
           </motion.div>
