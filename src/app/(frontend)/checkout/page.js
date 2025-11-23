@@ -803,9 +803,20 @@ export default function CheckoutPage() {
                   <span className="text-gray-900">{formatPrice(subtotal)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Shipping</span>
+                  <span className="text-gray-600">
+                    Shipping
+                    {!formData.city && settings?.shipping?.enabled && (
+                      <span className="text-xs text-gray-400 ml-1">(Select city)</span>
+                    )}
+                  </span>
                   <span className="text-gray-900">
-                    {shipping === 0 ? 'Free' : formatPrice(shipping)}
+                    {!formData.city && settings?.shipping?.enabled ? (
+                      <span className="text-gray-400">-</span>
+                    ) : shipping === 0 ? (
+                      'Free'
+                    ) : (
+                      formatPrice(shipping)
+                    )}
                   </span>
                 </div>
                 <div className="flex justify-between text-sm">
