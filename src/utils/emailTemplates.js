@@ -501,3 +501,318 @@ export const getOrderStatusUpdateEmail = (order, oldStatus) => {
   `;
 };
 
+/**
+ * Generate admin order notification email HTML (sent to Zammel official email)
+ */
+export const getAdminOrderNotificationEmail = (order) => {
+  const formatPrice = (price) => {
+    return new Intl.NumberFormat('en-PK', {
+      style: 'currency',
+      currency: 'PKR',
+      minimumFractionDigits: 0,
+    }).format(Math.round(price || 0));
+  };
+
+  const customerName = `${order.shippingAddress?.firstName || ''} ${order.shippingAddress?.lastName || ''}`.trim() || 'Guest Customer';
+  const customerEmail = order.shippingAddress?.email || 'No email provided';
+  const customerPhone = order.shippingAddress?.phone || 'No phone provided';
+
+  return `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <meta charset="utf-8">
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            margin: 0;
+            padding: 0;
+            background-color: #f4f4f4;
+          }
+          .container {
+            max-width: 600px;
+            margin: 0 auto;
+            background-color: white;
+          }
+          .header {
+            background-color: #dc2626;
+            color: white;
+            padding: 30px;
+            text-align: center;
+          }
+          .header h1 {
+            margin: 0;
+            font-size: 24px;
+          }
+          .content {
+            padding: 30px;
+          }
+          .alert-box {
+            background-color: #fef2f2;
+            border-left: 4px solid #dc2626;
+            padding: 15px;
+            margin: 20px 0;
+            border-radius: 4px;
+          }
+          .order-info {
+            background-color: #f9fafb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+          }
+          .order-info h2 {
+            margin-top: 0;
+            color: #1f2937;
+            font-size: 20px;
+          }
+          .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+          }
+          .info-row:last-child {
+            border-bottom: none;
+          }
+          .info-label {
+            font-weight: bold;
+            color: #4b5563;
+          }
+          .info-value {
+            color: #1f2937;
+          }
+          .items-section {
+            margin: 30px 0;
+          }
+          .items-section h3 {
+            color: #1f2937;
+            margin-bottom: 15px;
+          }
+          .order-item {
+            display: flex;
+            padding: 15px;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            background-color: #f9fafb;
+          }
+          .item-image {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 6px;
+            margin-right: 15px;
+          }
+          .item-details {
+            flex: 1;
+          }
+          .item-name {
+            font-weight: bold;
+            color: #1f2937;
+            margin-bottom: 5px;
+          }
+          .item-variant {
+            color: #6b7280;
+            font-size: 14px;
+            margin-bottom: 5px;
+          }
+          .item-quantity {
+            color: #6b7280;
+            font-size: 14px;
+          }
+          .item-price {
+            font-weight: bold;
+            color: #1f2937;
+            text-align: right;
+          }
+          .totals-section {
+            background-color: #f9fafb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+          }
+          .total-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+          }
+          .total-row.total {
+            border-top: 2px solid #1f2937;
+            margin-top: 10px;
+            padding-top: 15px;
+            font-size: 18px;
+            font-weight: bold;
+          }
+          .shipping-address {
+            background-color: #f9fafb;
+            border-radius: 8px;
+            padding: 20px;
+            margin-top: 20px;
+          }
+          .shipping-address h3 {
+            margin-top: 0;
+            color: #1f2937;
+          }
+          .address-line {
+            margin: 5px 0;
+            color: #4b5563;
+          }
+          .footer {
+            background-color: #1f2937;
+            color: white;
+            padding: 20px;
+            text-align: center;
+            font-size: 14px;
+          }
+          .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin-top: 10px;
+          }
+          .status-pending {
+            background-color: #fef3c7;
+            color: #92400e;
+          }
+          .customer-info {
+            background-color: #eff6ff;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+          }
+          .customer-info h3 {
+            margin-top: 0;
+            color: #1e40af;
+          }
+        </style>
+      </head>
+      <body>
+        <div class="container">
+          <div class="header">
+            <h1>🛒 New Order Received!</h1>
+          </div>
+          <div class="content">
+            <div class="alert-box">
+              <strong>New Order Alert:</strong> A new order has been placed and requires your attention.
+            </div>
+
+            <div class="order-info">
+              <h2>Order Information</h2>
+              <div class="info-row">
+                <span class="info-label">Order Number:</span>
+                <span class="info-value">${order.orderNumber || order._id}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Order Date:</span>
+                <span class="info-value">${new Date(order.createdAt || Date.now()).toLocaleDateString('en-PK', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Payment Method:</span>
+                <span class="info-value">${order.paymentMethod === 'cod' ? 'Cash on Delivery (COD)' : 'Credit/Debit Card'}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Payment Status:</span>
+                <span class="info-value">${(order.paymentStatus || 'pending').charAt(0).toUpperCase() + (order.paymentStatus || 'pending').slice(1)}</span>
+              </div>
+              <div class="info-row">
+                <span class="info-label">Order Status:</span>
+                <span class="info-value">
+                  <span class="status-badge status-${order.orderStatus || 'pending'}">
+                    ${(order.orderStatus || 'pending').charAt(0).toUpperCase() + (order.orderStatus || 'pending').slice(1)}
+                  </span>
+                </span>
+              </div>
+            </div>
+
+            <div class="customer-info">
+              <h3>Customer Information</h3>
+              <div class="address-line"><strong>Name:</strong> ${customerName}</div>
+              <div class="address-line"><strong>Email:</strong> ${customerEmail}</div>
+              <div class="address-line"><strong>Phone:</strong> ${customerPhone}</div>
+              ${order.user?.email ? `<div class="address-line"><strong>Account Email:</strong> ${order.user.email}</div>` : ''}
+            </div>
+
+            <div class="items-section">
+              <h3>Order Items</h3>
+              ${order.items?.map(item => `
+                <div class="order-item">
+                  ${item.images?.[0] ? `<img src="${item.images[0]}" alt="${item.productName}" class="item-image" />` : '<div class="item-image" style="background-color: #e5e7eb;"></div>'}
+                  <div class="item-details">
+                    <div class="item-name">${item.productName || 'Product'}</div>
+                    ${(item.variant?.size || item.variant?.color) ? `
+                      <div class="item-variant">
+                        ${item.variant.size ? `Size: ${item.variant.size}` : ''}
+                        ${item.variant.size && item.variant.color ? ' | ' : ''}
+                        ${item.variant.color ? `Color: ${item.variant.color}` : ''}
+                        ${item.variant.sku ? ` | SKU: ${item.variant.sku}` : ''}
+                      </div>
+                    ` : ''}
+                    <div class="item-quantity">Quantity: ${item.quantity}</div>
+                  </div>
+                  <div class="item-price">${formatPrice(item.price * item.quantity)}</div>
+                </div>
+              `).join('') || ''}
+            </div>
+
+            <div class="totals-section">
+              <h3>Order Summary</h3>
+              <div class="total-row">
+                <span>Subtotal:</span>
+                <span>${formatPrice(order.subtotal)}</span>
+              </div>
+              ${order.shipping > 0 ? `
+                <div class="total-row">
+                  <span>Shipping:</span>
+                  <span>${formatPrice(order.shipping)}</span>
+                </div>
+              ` : ''}
+              ${order.tax > 0 ? `
+                <div class="total-row">
+                  <span>Tax:</span>
+                  <span>${formatPrice(order.tax)}</span>
+                </div>
+              ` : ''}
+              ${order.discount > 0 ? `
+                <div class="total-row" style="color: #059669;">
+                  <span>Discount:</span>
+                  <span>-${formatPrice(order.discount)}</span>
+                </div>
+              ` : ''}
+              <div class="total-row total">
+                <span>Total:</span>
+                <span>${formatPrice(order.total)}</span>
+              </div>
+            </div>
+
+            <div class="shipping-address">
+              <h3>Shipping Address</h3>
+              <div class="address-line">${order.shippingAddress?.firstName || ''} ${order.shippingAddress?.lastName || ''}</div>
+              <div class="address-line">${order.shippingAddress?.address || ''}</div>
+              <div class="address-line">${order.shippingAddress?.city || ''} ${order.shippingAddress?.postalCode || ''}</div>
+              <div class="address-line">Phone: ${order.shippingAddress?.phone || ''}</div>
+            </div>
+
+            <p style="margin-top: 30px; padding: 15px; background-color: #fef3c7; border-radius: 8px;">
+              <strong>Action Required:</strong> Please process this order and update its status in the admin panel.
+            </p>
+          </div>
+          <div class="footer">
+            <p>&copy; ${new Date().getFullYear()} ${BRAND.name}. All rights reserved.</p>
+            <p>This is an automated notification from your order management system.</p>
+          </div>
+        </div>
+      </body>
+    </html>
+  `;
+};
+

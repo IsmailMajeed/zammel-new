@@ -16,7 +16,7 @@ export const GET = requireAdmin(async (request) => {
       {
         $match: {
           paymentStatus: 'paid',
-          orderStatus: { $ne: 'cancelled' }
+          orderStatus: { $nin: ['cancelled', 'delivered'] }
         }
       },
       {

@@ -6,6 +6,9 @@ import User from '@/models/User'; // Import User model to ensure it's registered
 import { successResponse, errorResponse } from '@/utils/responses';
 import jwt from 'jsonwebtoken';
 import mongoose from 'mongoose';
+import { sendEmail } from '@/utils/sendEmail';
+import { getAdminOrderNotificationEmail } from '@/utils/emailTemplates';
+import BRAND from '@/utils/brandConstants';
 
 // Helper function to extract user ID from JWT token in authorization header
 function getUserIdFromAuthHeader(request) {
@@ -323,6 +326,20 @@ export async function POST(request) {
     } catch (emailError) {
       // Log error but don't fail order creation
       console.error('Failed to send order confirmation email:', emailError);
+    }
+
+    // Send order notification email to Zammel official email
+    try {
+      const adminEmailHtml = getAdminOrderNotificationEmail(populatedOrder);
+      await sendEmail(
+        BRAND.name,
+        BRAND.contact.email,
+        `New Order Received - ${populatedOrder.orderNumber}`,
+        adminEmailHtml
+      );
+    } catch (adminEmailError) {
+      // Log error but don't fail order creation
+      console.error('Failed to send admin order notification email:', adminEmailError);
     }
 
     return NextResponse.json(
