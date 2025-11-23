@@ -187,7 +187,7 @@ export default function Footer() {
                 <a href={`mailto:${BRAND.contact.email}`}>📧 {BRAND.contact.email}</a>
                 <a href={`tel:${BRAND.contact.phone}`}>📞 {BRAND.contact.phone}</a>
                 <span>📍 Lahore, Pakistan</span>
-                <span>🕒 Mon - Fri: 9AM - 6PM</span>
+                {/* <span>🕒 Mon - Fri: 9AM - 6PM</span> */}
               </div>
             </div>
           </div>
