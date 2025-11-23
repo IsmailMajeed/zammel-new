@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import ProductCard from './ProductCard';
 import { useGetCategoriesQuery } from '@/redux/api/Categories';
 import useDebounce from '@/hooks/useDebounce';
@@ -16,34 +16,61 @@ export default function ProductGrid({
   isLoadMoreLoading = false
 }) {
   const [showFilters, setShowFilters] = useState(false);
-  const [localFilters, setLocalFilters] = useState({
+  const onFiltersChangeRef = useRef(onFiltersChange);
+  const prevFiltersRef = useRef(null);
+
+  // Memoize initial filters to prevent unnecessary recalculations
+  const initialFiltersMemo = useMemo(() => ({
     category: initialFilters?.category || 'all',
     minPrice: initialFilters?.minPrice || '',
     maxPrice: initialFilters?.maxPrice || '',
     sortBy: initialFilters?.sortBy || 'featured'
-  });
+  }), [initialFilters?.category, initialFilters?.minPrice, initialFilters?.maxPrice, initialFilters?.sortBy]);
 
-  // Sync local filters with prop filters
+  const [localFilters, setLocalFilters] = useState(initialFiltersMemo);
+  const prevInitialFiltersRef = useRef(initialFiltersMemo);
+
+  // Update ref when onFiltersChange changes
   useEffect(() => {
-    if (initialFilters) {
-      setLocalFilters(initialFilters);
+    onFiltersChangeRef.current = onFiltersChange;
+  }, [onFiltersChange]);
+
+  // Sync local filters with prop filters only when values actually change
+  useEffect(() => {
+    const prevInitial = prevInitialFiltersRef.current;
+    const filtersChanged =
+      initialFiltersMemo.category !== prevInitial.category ||
+      initialFiltersMemo.minPrice !== prevInitial.minPrice ||
+      initialFiltersMemo.maxPrice !== prevInitial.maxPrice ||
+      initialFiltersMemo.sortBy !== prevInitial.sortBy;
+
+    if (filtersChanged) {
+      prevInitialFiltersRef.current = initialFiltersMemo;
+      setLocalFilters(initialFiltersMemo);
     }
-  }, [initialFilters]);
+  }, [initialFiltersMemo]);
 
   // Debounce price inputs to avoid too many API calls
   const debouncedMinPrice = useDebounce(localFilters.minPrice, 500);
   const debouncedMaxPrice = useDebounce(localFilters.maxPrice, 500);
 
-  // Update parent when filters change
+  // Update parent when filters change (only when values actually change)
   useEffect(() => {
-    if (onFiltersChange) {
-      onFiltersChange({
-        ...localFilters,
-        minPrice: debouncedMinPrice,
-        maxPrice: debouncedMaxPrice
-      });
+    const newFilters = {
+      ...localFilters,
+      minPrice: debouncedMinPrice,
+      maxPrice: debouncedMaxPrice
+    };
+
+    // Compare with previous filters to avoid unnecessary updates
+    const filtersString = JSON.stringify(newFilters);
+    const prevFiltersString = prevFiltersRef.current ? JSON.stringify(prevFiltersRef.current) : null;
+
+    if (filtersString !== prevFiltersString && onFiltersChangeRef.current) {
+      prevFiltersRef.current = newFilters;
+      onFiltersChangeRef.current(newFilters);
     }
-  }, [localFilters.category, debouncedMinPrice, debouncedMaxPrice, localFilters.sortBy, onFiltersChange]);
+  }, [localFilters.category, debouncedMinPrice, debouncedMaxPrice, localFilters.sortBy]);
 
   // Fetch categories for filtering
   const { data: categoriesData } = useGetCategoriesQuery({

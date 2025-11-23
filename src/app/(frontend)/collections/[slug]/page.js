@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import { useGetCategoriesQuery } from '@/redux/api/Categories';
 import { useGetProductsQuery } from '@/redux/api/Products';
@@ -13,6 +13,7 @@ import Image from 'next/image';
 export default function CollectionPage() {
   const params = useParams();
   const slug = params?.slug;
+  const categorySetRef = useRef(false);
   const [filters, setFilters] = useState({
     category: '',
     minPrice: '',
@@ -28,26 +29,44 @@ export default function CollectionPage() {
     limit: 1000
   });
 
-  const categories = categoriesData?.data?.categories || categoriesData?.data || [];
-  const currentCategory = categories.find(
-    cat => (cat.slug === slug) || (cat._id === slug) || (cat.id === slug)
-  );
+  const categories = useMemo(() => {
+    return categoriesData?.data?.categories || categoriesData?.data || [];
+  }, [categoriesData]);
+
+  const currentCategory = useMemo(() => {
+    return categories.find(
+      cat => (cat.slug === slug) || (cat._id === slug) || (cat.id === slug)
+    );
+  }, [categories, slug]);
+
+  // Set category filter when category is found (only once per slug change)
+  useEffect(() => {
+    if (currentCategory && !categorySetRef.current) {
+      const categoryId = currentCategory._id || currentCategory.id;
+      setFilters(prev => {
+        // Only update if category is different
+        if (prev.category !== categoryId) {
+          categorySetRef.current = true;
+          return {
+            ...prev,
+            category: categoryId
+          };
+        }
+        return prev;
+      });
+    }
+  }, [currentCategory]);
+
+  // Reset categorySetRef when slug changes
+  useEffect(() => {
+    categorySetRef.current = false;
+  }, [slug]);
 
   // Reset products and page when filters change
   useEffect(() => {
     setPage(1);
     setAllProducts([]);
   }, [filters.category, filters.minPrice, filters.maxPrice, filters.sortBy]);
-
-  // Set category filter when category is found
-  useEffect(() => {
-    if (currentCategory) {
-      setFilters(prev => ({
-        ...prev,
-        category: currentCategory._id || currentCategory.id
-      }));
-    }
-  }, [currentCategory]);
 
   const queryParams = {
     status: 'active',
