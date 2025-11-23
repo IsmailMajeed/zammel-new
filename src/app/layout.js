@@ -40,6 +40,7 @@ export const metadata = {
   alternates: {
     canonical: "/",
   },
+  manifest: "/favicon_io/site.webmanifest",
   openGraph: {
     type: "website",
     locale: "en_US",
