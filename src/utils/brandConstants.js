@@ -51,6 +51,7 @@ export const BRAND = {
     },
 
     social: {
+        website: "https://zammel.store",
         instagram: "https://www.instagram.com/zammelofficial?igsh=YjU3bzMxZjdlc2p1",
         facebook: "https://www.facebook.com/zammelofficial",
         whatsapp: "https://wa.me/923710713445",

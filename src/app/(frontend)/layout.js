@@ -1,5 +1,4 @@
 import Layout from "@/components/Layout";
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://zammel.store';
 
 export const metadata = {
   title: {
@@ -7,7 +6,6 @@ export const metadata = {
     template: "%s | Zammel",
   },
   description: "Discover premium-quality hoodies and fashion. Open parcel before payment across Pakistan.",
-  alternates: { canonical: `${baseUrl}/` },
 };
 
 export default function RootLayout({ children }) {

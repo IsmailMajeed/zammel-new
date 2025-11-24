@@ -4,8 +4,6 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { BRAND } from "@/utils/brandConstants";
 
-const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://zammel.store';
-
 const manrope = Manrope({
   variable: "--font-manrope",
   subsets: ["latin"],
@@ -38,9 +36,6 @@ export const metadata = {
       "max-image-preview": "large",
       "max-snippet": -1,
     },
-  },
-  alternates: {
-    canonical: `${baseUrl}/`,
   },
   manifest: "/favicon_io/site.webmanifest",
   openGraph: {
@@ -89,7 +84,7 @@ export default function RootLayout({ children }) {
               "@context": "https://schema.org",
               "@type": "Organization",
               "name": "Zammel",
-              "url": `${baseUrl}/`,
+              "url": BRAND.social.website,
               "logo": "/favicon_io/android-chrome-512x512.png",
               "description": BRAND.meta?.description || "Premium Fashion Brand",
               "address": {
@@ -97,8 +92,8 @@ export default function RootLayout({ children }) {
                 "addressCountry": "PK"
               },
               "sameAs": [
-                "https://www.facebook.com/",
-                "https://www.instagram.com/"
+                BRAND.social.facebook,
+                BRAND.social.instagram
               ]
             })
           }}
