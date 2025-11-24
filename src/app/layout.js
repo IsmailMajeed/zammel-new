@@ -4,6 +4,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 import { BRAND } from "@/utils/brandConstants";
 
+const baseUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://zammel.store';
+
 const manrope = Manrope({
   variable: "--font-manrope",
   subsets: ["latin"],
@@ -38,7 +40,7 @@ export const metadata = {
     },
   },
   alternates: {
-    canonical: "/",
+    canonical: `${baseUrl}/`,
   },
   manifest: "/favicon_io/site.webmanifest",
   openGraph: {
@@ -87,7 +89,7 @@ export default function RootLayout({ children }) {
               "@context": "https://schema.org",
               "@type": "Organization",
               "name": "Zammel",
-              "url": "/",
+              "url": `${baseUrl}/`,
               "logo": "/favicon_io/android-chrome-512x512.png",
               "description": BRAND.meta?.description || "Premium Fashion Brand",
               "address": {
