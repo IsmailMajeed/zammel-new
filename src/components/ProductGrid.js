@@ -29,6 +29,8 @@ export default function ProductGrid({
 
   const [localFilters, setLocalFilters] = useState(initialFiltersMemo);
   const prevInitialFiltersRef = useRef(initialFiltersMemo);
+  const filterPanelContentRef = useRef(null);
+  const [filterPanelHeight, setFilterPanelHeight] = useState(0);
 
   // Update ref when onFiltersChange changes
   useEffect(() => {
@@ -78,6 +80,19 @@ export default function ProductGrid({
     limit: 1000
   });
   const categories = categoriesData?.data?.categories || categoriesData?.data || [];
+
+  // Keep animated panel height in sync with its content
+  useEffect(() => {
+    const updatePanelHeight = () => {
+      if (filterPanelContentRef.current) {
+        setFilterPanelHeight(filterPanelContentRef.current.scrollHeight);
+      }
+    };
+
+    updatePanelHeight();
+    window.addEventListener('resize', updatePanelHeight);
+    return () => window.removeEventListener('resize', updatePanelHeight);
+  }, [categories.length, products.length, showFilters]);
 
   const sortOptions = [
     { value: 'featured', label: 'Featured' },
@@ -134,11 +149,31 @@ export default function ProductGrid({
           <div className="flex items-center space-x-4">
             <button
               onClick={() => setShowFilters(!showFilters)}
-              className="flex items-center space-x-2 px-4 py-2 border border-gray-300 rounded-lg hover:border-gray-400 transition-colors relative"
+              className={`flex items-center space-x-2 px-4 py-2 border rounded-lg transition-colors relative ${showFilters
+                ? 'bg-gray-900 text-white border-gray-900 hover:bg-black'
+                : 'border-gray-300 hover:border-gray-400 text-gray-900'
+                }`}
             >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
-              </svg>
+              <span className="relative flex w-4 h-4">
+                {/* Filter icon */}
+                <svg
+                  className={`absolute inset-0 w-4 h-4 transition-all duration-200 ${showFilters ? 'opacity-0 scale-75 rotate-45' : 'opacity-100 scale-100 rotate-0'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+                </svg>
+                {/* Close icon */}
+                <svg
+                  className={`absolute inset-0 w-4 h-4 transition-all duration-200 ${showFilters ? 'opacity-100 scale-100 rotate-0' : 'opacity-0 scale-75 -rotate-45'}`}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </span>
               <span>Filter</span>
               {activeFilterCount > 0 && (
                 <span className="bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -183,8 +218,11 @@ export default function ProductGrid({
         </div>
 
         {/* Filter Panel */}
-        {showFilters && (
-          <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <div
+          className={`transition-[max-height,opacity] duration-300 ease-out ${showFilters ? 'opacity-100 mt-2 mb-6' : 'opacity-0 pointer-events-none'}`}
+          style={{ maxHeight: showFilters ? filterPanelHeight : 0 }}
+        >
+          <div ref={filterPanelContentRef} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Category Filter */}
               <div>
@@ -251,7 +289,7 @@ export default function ProductGrid({
               </div>
             </div>
           </div>
-        )}
+        </div>
 
         {/* Products Grid */}
         <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
