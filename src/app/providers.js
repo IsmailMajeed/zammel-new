@@ -8,6 +8,7 @@ import Cart from '@/components/Cart';
 import Wishlist from '@/components/Wishlist';
 import LoadingScreen from '@/components/LoadingScreen';
 import { ThemeProvider } from '@/contexts/ThemeContext';
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export function Providers({ children }) {
     return (
@@ -17,6 +18,7 @@ export function Providers({ children }) {
                     {children}
                     <Cart />
                     <Wishlist />
+                    <SpeedInsights />
                     <Toaster position="top-right" />
                 </ThemeProvider>
             </PersistGate>
