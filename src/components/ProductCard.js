@@ -292,8 +292,8 @@ export default function ProductCard({ product }) {
                       <div
                         className="w-3 h-3 rounded-full border border-gray-300"
                         style={{
-                          backgroundColor: colorCode || 'transparent',
-                          backgroundImage: !colorCode ? 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)' : 'none',
+                          backgroundColor: colorCode || 'black',
+                          // backgroundImage: !colorCode ? 'linear-gradient(45deg, #ccc 25%, transparent 25%), linear-gradient(-45deg, #ccc 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #ccc 75%), linear-gradient(-45deg, transparent 75%, #ccc 75%)' : 'none',
                           backgroundSize: '4px 4px',
                           backgroundPosition: '0 0, 0 2px, 2px -2px, -2px 0px'
                         }}
