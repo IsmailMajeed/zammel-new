@@ -48,6 +48,13 @@ export const BRAND = {
             title: "Zammel - Premium Fashion Brand",
             description: "Discover the latest trends in fashion with Zammel. Premium quality meets cutting-edge design for the modern lifestyle.",
         },
+    },
+
+    social: {
+        instagram: "https://www.instagram.com/zammelofficial?igsh=YjU3bzMxZjdlc2p1",
+        facebook: "https://www.facebook.com/zammelofficial",
+        whatsapp: "https://wa.me/923710713445",
+        email: "zammelofficial@gmail.com",
     }
 };
 
