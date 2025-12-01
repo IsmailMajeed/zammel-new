@@ -30,7 +30,9 @@
     "react-dom": "19.2.0",
     "react-icons": "^5.5.0",
     "react-redux": "^9.2.0",
+    "react-slick": "^0.31.0",
     "redux-persist": "^6.0.0",
+    "slick-carousel": "^1.8.1",
     "sonner": "^2.0.7",
     "sweetalert2": "^11.26.3"
   },

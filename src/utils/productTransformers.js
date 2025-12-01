@@ -26,15 +26,8 @@ export function transformProductForFrontend(product) {
   // Get images - use first variant's images or fallback
   const images = firstVariant.images || [];
   const image = images[0] || '/placeholder-product.jpg';
-  const hoverImage = images[1] || image;
-
-  // Determine badge
-  let badge = 'new';
-  if (product.tags?.includes('sale')) {
-    badge = 'sale';
-  } else if (product.featured) {
-    badge = 'featured';
-  }
+  const hoverImage = images[1] ? images[1] : image;
+  const badge = product.tags?.includes('sale') ? 'sale' : 'new';
 
   return {
     id: product._id || product.id,
@@ -49,6 +42,12 @@ export function transformProductForFrontend(product) {
     colors,
     description: product.description || '',
     badge,
+    tags: Array.isArray(product.tags) ? product.tags : [],
+    fabric: product.fabric || null,
+    gsm: product.gsm || null,
+    fit: product.fit || null,
+    careInstructions: Array.isArray(product.careInstructions) ? product.careInstructions : [],
+    sizeChart: Array.isArray(product.sizeChart) ? product.sizeChart : [],
     // Store full product data for detail page
     _fullData: product
   };
@@ -82,7 +81,12 @@ export function transformProductForDetail(product) {
       quantity: variant.quantity || 0,
       sku: variant.sku,
       images: variant.images || [],
-      available: (variant.quantity || 0) > 0
+      available: (variant.quantity || 0) > 0,
+      fabric: product.fabric || null,
+      gsm: product.gsm || null,
+      fit: product.fit || null,
+      careInstructions: Array.isArray(product.careInstructions) ? product.careInstructions : [],
+      sizeChart: Array.isArray(product.sizeChart) ? product.sizeChart : [],
     };
   }) || [];
 

@@ -46,7 +46,20 @@ export const PUT = requireAdmin(async (request, { params }) => {
     }
 
     const body = await request.json();
-    const { name, description, category, variants, status, featured, tags } = body || {};
+    const {
+      name,
+      description,
+      category,
+      variants,
+      status,
+      featured,
+      tags,
+      fabric,
+      gsm,
+      fit,
+      careInstructions,
+      sizeChart
+    } = body || {};
 
     await connectToDb();
 
@@ -98,6 +111,33 @@ export const PUT = requireAdmin(async (request, { params }) => {
     if (status !== undefined) product.status = status;
     if (featured !== undefined) product.featured = featured;
     if (tags !== undefined) product.tags = tags;
+    if (fabric !== undefined) product.fabric = fabric?.trim() || undefined;
+
+    if (gsm !== undefined) {
+      const parsedGsm = Number(gsm);
+      product.gsm = Number.isFinite(parsedGsm) && parsedGsm > 0 ? parsedGsm : undefined;
+    }
+
+    if (fit !== undefined) product.fit = fit?.trim() || undefined;
+
+    if (careInstructions !== undefined) {
+      product.careInstructions = Array.isArray(careInstructions)
+        ? careInstructions.filter(instruction => typeof instruction === 'string' && instruction.trim().length > 0)
+        : [];
+    }
+
+    if (sizeChart !== undefined) {
+      product.sizeChart = Array.isArray(sizeChart)
+        ? sizeChart
+          .map(row => ({
+            size: row?.size?.trim() || '',
+            chest: row?.chest?.trim() || '',
+            length: row?.length?.trim() || '',
+            sleeve: row?.sleeve?.trim() || '',
+          }))
+          .filter(row => row.size && (row.chest || row.length || row.sleeve))
+        : [];
+    }
 
     await product.save();
     await product.populate('category', 'name slug');

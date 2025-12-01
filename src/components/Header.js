@@ -128,7 +128,10 @@ export default function Header() {
 
             {/* Logo */}
             <div className="grow text-center">
-              <Link href="/" className="text-2xl font-bold text-gray-900">
+              <Link
+                href="/"
+                className="text-2xl font-bold text-gray-900 brand-wordmark tracking-[0.2em]"
+              >
                 {BRAND.name}
               </Link>
             </div>

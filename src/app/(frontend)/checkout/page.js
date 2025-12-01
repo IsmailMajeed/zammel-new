@@ -7,11 +7,12 @@ import { useCreateOrderMutation } from '@/redux/api/Orders';
 import { useGetSettingsQuery } from '@/redux/api/Settings';
 import { toast } from 'sonner';
 import { useRouter } from 'next/navigation';
-import { CreditCard, MapPin, Phone, Mail, ArrowLeft, Lock, AlertTriangle } from 'lucide-react';
+import { CreditCard, MapPin, Phone, Mail, ArrowLeft, Lock, AlertTriangle, MessageCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { getVariantByColorAndSize } from '@/utils/productTransformers';
 import Swal from 'sweetalert2';
 import { SORTED_CITIES } from '@/utils/pakistaniCities';
+import { BRAND } from '@/utils/brandConstants';
 
 export default function CheckoutPage() {
   const [formData, setFormData] = useState({
@@ -229,6 +230,17 @@ export default function CheckoutPage() {
   const finalTotal = useMemo(() => {
     return subtotal + shipping + tax - discountAmount;
   }, [subtotal, shipping, tax, discountAmount]);
+
+  const estimatedDeliveryMessage = useMemo(() => {
+    if (!formData.city) {
+      return 'Select your city to view precise delivery timelines (usually 2-5 working days across Pakistan).';
+    }
+    const metroCities = ['Lahore', 'Karachi', 'Islamabad', 'Rawalpindi'];
+    if (metroCities.includes(formData.city)) {
+      return '1-2 working days in major cities after dispatch.';
+    }
+    return '3-5 working days nationwide after dispatch.';
+  }, [formData.city]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -541,7 +553,7 @@ export default function CheckoutPage() {
                       <option value="">Select City</option>
                       {SORTED_CITIES.map((city) => (
                         <option key={city} value={city}>
-                          {city}
+                          {city} - {formatPrice(settings?.shipping?.cityCharges?.[city] || settings?.shipping?.value || 0)}
                         </option>
                       ))}
                     </select>
@@ -835,6 +847,35 @@ export default function CheckoutPage() {
                     <span className="text-gray-900">{formatPrice(finalTotal)}</span>
                   </div>
                 </div>
+
+                <div className="mt-4 rounded-xl bg-gray-900 p-4 text-white">
+                  <div className="flex items-center justify-between text-sm uppercase tracking-wide">
+                    <span>Payable today</span>
+                    <span className="text-lg font-semibold">{formatPrice(finalTotal)}</span>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-300">
+                    Includes shipping ({shipping === 0 ? 'Free' : formatPrice(shipping)}) and tax ({formatPrice(tax)}).
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-6 flex flex-col gap-4">
+                <div className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <Clock className="w-4 h-4 text-amber-700 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-amber-900">Estimated delivery</p>
+                    <p className="text-xs text-amber-800">{estimatedDeliveryMessage}</p>
+                  </div>
+                </div>
+                <a
+                  href={BRAND.social.whatsapp}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 rounded-lg border border-green-500 bg-green-50 px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors"
+                >
+                  <MessageCircle className="w-4 h-4" />
+                  Need help? WhatsApp us
+                </a>
               </div>
 
               {/* Security Notice */}

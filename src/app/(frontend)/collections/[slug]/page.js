@@ -135,9 +135,9 @@ export default function CollectionPage() {
 
   return (
     <main className="min-h-screen bg-white py-8">
-      <div className="container py-12">
+      <div>
         {/* Breadcrumb */}
-        <div className="mb-6">
+        <div className="container">
           <Link
             href="/collections"
             className="inline-flex items-center text-gray-600 hover:text-gray-900 mb-4"
@@ -148,7 +148,7 @@ export default function CollectionPage() {
         </div>
 
         {/* Collection Header */}
-        <div className="mb-12">
+        {/* <div className="mb-12">
           {currentCategory.image && (
             <div className="relative w-full h-64 md:h-96 bg-gray-100 rounded-lg overflow-hidden mb-6">
               <Image
@@ -160,13 +160,7 @@ export default function CollectionPage() {
               />
             </div>
           )}
-          <h1 className="text-4xl font-bold text-gray-900 mb-4">{currentCategory.name}</h1>
-          {currentCategory.description && (
-            <p className="text-gray-600 text-lg leading-relaxed max-w-3xl">
-              {currentCategory.description}
-            </p>
-          )}
-        </div>
+        </div> */}
 
         {/* Products Grid */}
         {isLoading ? (
@@ -181,6 +175,9 @@ export default function CollectionPage() {
           </div>
         ) : (
           <ProductGrid
+            canResetFilters={false}
+            collectionName={currentCategory?.name || ''}
+            collectionDescription={currentCategory?.description || ''}
             products={allProducts}
             filters={filters}
             onFiltersChange={setFilters}

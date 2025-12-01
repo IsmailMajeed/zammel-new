@@ -6,6 +6,9 @@ import { useGetCategoriesQuery } from '@/redux/api/Categories';
 import useDebounce from '@/hooks/useDebounce';
 
 export default function ProductGrid({
+  canResetFilters = true,
+  collectionName = 'Zammel Collections',
+  collectionDescription = 'Curated essentials from every category - mix fits, colours, and fabrics to build your own look.',
   products = [],
   filters: initialFilters,
   onFiltersChange,
@@ -25,7 +28,14 @@ export default function ProductGrid({
     minPrice: initialFilters?.minPrice || '',
     maxPrice: initialFilters?.maxPrice || '',
     sortBy: initialFilters?.sortBy || 'featured'
-  }), [initialFilters?.category, initialFilters?.minPrice, initialFilters?.maxPrice, initialFilters?.sortBy]);
+    // Make sure initialFiltersMemo is updated if canResetFilters or initialFilters changes
+  }), [
+    canResetFilters,
+    initialFilters?.category,
+    initialFilters?.minPrice,
+    initialFilters?.maxPrice,
+    initialFilters?.sortBy,
+  ]);
 
   const [localFilters, setLocalFilters] = useState(initialFiltersMemo);
   const prevInitialFiltersRef = useRef(initialFiltersMemo);
@@ -58,8 +68,13 @@ export default function ProductGrid({
 
   // Update parent when filters change (only when values actually change)
   useEffect(() => {
+    // In slug-page mode (canResetFilters === false), always force category to initialFilters.category
+    const effectiveCategory =
+      canResetFilters ? localFilters.category : (initialFilters?.category || 'all');
+
     const newFilters = {
       ...localFilters,
+      category: effectiveCategory,
       minPrice: debouncedMinPrice,
       maxPrice: debouncedMaxPrice
     };
@@ -72,7 +87,14 @@ export default function ProductGrid({
       prevFiltersRef.current = newFilters;
       onFiltersChangeRef.current(newFilters);
     }
-  }, [localFilters.category, debouncedMinPrice, debouncedMaxPrice, localFilters.sortBy]);
+  }, [
+    localFilters.category,
+    debouncedMinPrice,
+    debouncedMaxPrice,
+    localFilters.sortBy,
+    canResetFilters,
+    initialFilters?.category
+  ]);
 
   // Fetch categories for filtering
   const { data: categoriesData } = useGetCategoriesQuery({
@@ -109,6 +131,8 @@ export default function ProductGrid({
   };
 
   const handleCategoryChange = (value) => {
+    // In slug mode (canResetFilters === false), don't let user change the category
+    if (!canResetFilters) return;
     setLocalFilters(prev => ({ ...prev, category: value }));
   };
 
@@ -117,6 +141,8 @@ export default function ProductGrid({
   };
 
   const handleFilterReset = () => {
+    // Don't allow filter reset in slug mode (canResetFilters === false)
+    if (!canResetFilters) return;
     const resetFilters = {
       category: 'all',
       minPrice: '',
@@ -129,17 +155,24 @@ export default function ProductGrid({
     }
   };
 
-  const activeFilterCount = (localFilters.category !== 'all' ? 1 : 0) +
-    (localFilters.minPrice !== '' || localFilters.maxPrice !== '' ? 1 : 0);
+  // For slug pages, activeFilterCount should not consider the category, since user can't change it.
+  const activeCategoryChanged =
+    canResetFilters
+      ? (localFilters.category !== 'all')
+      : false;
+
+  const activePriceChanged = (localFilters.minPrice !== '' || localFilters.maxPrice !== '');
+
+  const activeFilterCount = (activeCategoryChanged ? 1 : 0) + (activePriceChanged ? 1 : 0);
 
   return (
     <div className="py-8">
       <div className="container">
         {/* Collection Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Hoodie Collection</h1>
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">{collectionName}</h1>
           <p className="text-gray-600">
-            Discover our premium collection of comfortable and stylish hoodies
+            {collectionDescription}
           </p>
         </div>
 
@@ -181,7 +214,7 @@ export default function ProductGrid({
                 </span>
               )}
             </button>
-            {activeFilterCount > 0 && (
+            {activeFilterCount > 0 && canResetFilters && (
               <button
                 onClick={handleFilterReset}
                 className="text-sm text-gray-600 hover:text-gray-900 underline"
@@ -225,33 +258,36 @@ export default function ProductGrid({
           <div ref={filterPanelContentRef} className="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               {/* Category Filter */}
-              <div>
-                <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
-                  Category
-                  {isLoading && (
-                    <span className="ml-2 inline-block">
-                      <svg className="animate-spin h-4 w-4 text-blue-600 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                      </svg>
-                    </span>
-                  )}
-                </label>
-                <select
-                  id="category"
-                  value={localFilters.category}
-                  onChange={(e) => handleCategoryChange(e.target.value)}
-                  disabled={isLoading}
-                  className={`w-full appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 hover:border-gray-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
-                >
-                  <option value="all">All Categories</option>
-                  {categories.map((category) => (
-                    <option key={category._id} value={category._id}>
-                      {category.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+              {/* If canResetFilters is false (slug pages), don't show category filter */}
+              {canResetFilters && (
+                <div>
+                  <label htmlFor="category" className="block text-sm font-medium text-gray-700 mb-2">
+                    Category
+                    {isLoading && (
+                      <span className="ml-2 inline-block">
+                        <svg className="animate-spin h-4 w-4 text-blue-600 inline-block" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                      </span>
+                    )}
+                  </label>
+                  <select
+                    id="category"
+                    value={localFilters.category}
+                    onChange={(e) => handleCategoryChange(e.target.value)}
+                    disabled={isLoading}
+                    className={`w-full appearance-none bg-white border border-gray-300 rounded-lg px-4 py-2 pr-8 hover:border-gray-400 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent ${isLoading ? 'opacity-75 cursor-not-allowed' : ''}`}
+                  >
+                    <option value="all">All Categories</option>
+                    {categories.map((category) => (
+                      <option key={category._id} value={category._id}>
+                        {category.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               {/* Price Range Filter */}
               <div>
@@ -304,14 +340,17 @@ export default function ProductGrid({
           ) : (
             <div className="col-span-full text-center py-12">
               <p className="text-gray-500 text-lg">No products found matching your filters.</p>
-              {activeFilterCount > 0 && (
-                <button
-                  onClick={handleFilterReset}
-                  className="mt-4 text-blue-600 hover:text-blue-800 underline"
-                >
-                  Clear all filters
-                </button>
-              )}
+              {
+                // Only offer "Clear all filters" if canResetFilters is true and there is a filter to clear.
+                activeFilterCount > 0 && canResetFilters && (
+                  <button
+                    onClick={handleFilterReset}
+                    className="mt-4 text-blue-600 hover:text-blue-800 underline"
+                  >
+                    Clear all filters
+                  </button>
+                )
+              }
             </div>
           )}
         </div>

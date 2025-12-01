@@ -35,6 +35,7 @@
   --button-foreground: #ffffff;
   --button-hover: #1e40af;
   --ring-color: #93c5fd;
+  --brand-font-stack: "Modern No. 20";
 }
 
 .dark {
@@ -84,6 +85,14 @@ body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-manrope), var(--font-plusjakarta), sans-serif;
+}
+
+.brand-wordmark {
+  font-family: var(--brand-font-stack);
+  letter-spacing: 0.12em;
+  font-weight: 600;
+  text-transform: uppercase;
+  font-variation-settings: "opsz" 24;
 }
 
 /* Headings use Plus Jakarta Sans for a crisp, modern feel */

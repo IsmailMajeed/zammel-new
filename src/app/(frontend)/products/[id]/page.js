@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { Heart, ShoppingCart, Minus, Plus, ArrowLeft, Star, Truck, Shield, RotateCcw } from 'lucide-react';
+import { useParams, usePathname } from 'next/navigation';
+import { Heart, ShoppingCart, Minus, Plus, ArrowLeft, Star, Truck, Shield, RotateCcw, MessageCircle, Ruler, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { addToCart } from '@/redux/slices/Cart';
 import { addToWishlist, removeFromWishlist } from '@/redux/slices/Wishlist';
@@ -12,15 +12,54 @@ import { useGetProductByIdQuery, useGetProductsQuery } from '@/redux/api/Product
 import { toast } from 'sonner';
 import { BRAND } from '@/utils/brandConstants';
 import { transformProductForDetail, getVariantByColorAndSize } from '@/utils/productTransformers';
+import Slider from 'react-slick';
+import 'slick-carousel/slick/slick.css';
+import 'slick-carousel/slick/slick-theme.css';
+
+const DEFAULT_PRODUCT_META = {
+  fabric: 'Premium fleece (80% cotton / 20% polyester)',
+  weight: '320 GSM brushed interior',
+  fit: 'Relaxed, true-to-size silhouette',
+  care: [
+    'Machine wash cold, inside out',
+    'Use mild detergent & similar colours',
+    'Do not bleach or tumble dry',
+    'Steam/iron on low from inside',
+  ],
+};
+
+const SIZE_CHART_REFERENCE = {
+  XS: { chest: '19"', length: '26"', sleeve: '23"' },
+  S: { chest: '20"', length: '27"', sleeve: '24"' },
+  M: { chest: '21"', length: '28"', sleeve: '24.5"' },
+  L: { chest: '22"', length: '29"', sleeve: '25"' },
+  XL: { chest: '23.5"', length: '30"', sleeve: '25.5"' },
+  XXL: { chest: '25"', length: '31"', sleeve: '26"' },
+  '3XL': { chest: '26.5"', length: '32"', sleeve: '26.5"' },
+};
+
+const CarouselArrow = ({ direction, onClick }) => (
+  <button
+    type="button"
+    onClick={onClick}
+    aria-label={direction === 'prev' ? 'Previous image' : 'Next image'}
+    className={`absolute top-1/2 -translate-y-1/2 z-20 bg-white/90 hover:bg-white shadow-lg rounded-full p-2 sm:p-3 transition-all focus:outline-none focus-visible:ring-2 focus-visible:ring-gray-900/60 ${direction === 'prev' ? 'left-3 sm:left-4' : 'right-3 sm:right-4'}`}
+  >
+    {direction === 'prev' ? <ChevronLeft className="w-5 h-5 text-gray-900" /> : <ChevronRight className="w-5 h-5 text-gray-900" />}
+  </button>
+);
 
 export default function ProductPage() {
   const params = useParams();
+  const pathname = usePathname();
   const productId = params?.id;
 
   const [selectedSize, setSelectedSize] = useState('');
   const [selectedColor, setSelectedColor] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [selectedImage, setSelectedImage] = useState(0);
+  const [isSizeChartOpen, setIsSizeChartOpen] = useState(false);
+  const sliderRef = useRef(null);
 
   const dispatch = useDispatch();
   const { items: wishlistItems } = useSelector(state => state.wishlist);
@@ -84,6 +123,33 @@ export default function ProductPage() {
     return product?.images || [];
   }, [currentVariant, product]);
 
+  useEffect(() => {
+    if (currentImages.length === 0) {
+      setSelectedImage(0);
+      return;
+    }
+    if (selectedImage >= currentImages.length) {
+      setSelectedImage(0);
+      sliderRef.current?.slickGoTo(0);
+    }
+  }, [currentImages, selectedImage]);
+
+  const sliderSettings = useMemo(() => ({
+    dots: false,
+    arrows: currentImages.length > 1,
+    infinite: currentImages.length > 1,
+    autoplay: currentImages.length > 1,
+    autoplaySpeed: 4000,
+    pauseOnHover: true,
+    speed: 500,
+    slidesToShow: 1,
+    slidesToScroll: 1,
+    adaptiveHeight: true,
+    swipe: true,
+    prevArrow: currentImages.length > 1 ? <CarouselArrow direction="prev" /> : null,
+    nextArrow: currentImages.length > 1 ? <CarouselArrow direction="next" /> : null,
+  }), [currentImages.length]);
+
   // Get price for current variant
   const currentPrice = useMemo(() => {
     if (currentVariant) {
@@ -125,6 +191,40 @@ export default function ProductPage() {
   const cartQuantity = product ? cartItems.find(item => item.id === cartItemId)?.quantity || 0 : 0;
   const availableStock = currentVariant ? (currentVariant.quantity || 0) - cartQuantity : 0;
   const maxQuantityAllowed = Math.min(quantity, availableStock);
+
+  const fabricBlend = product?.fabric || DEFAULT_PRODUCT_META.fabric;
+  const garmentWeight = product?.gsm ? `${product?.gsm} GSM brushed fleece`
+    : DEFAULT_PRODUCT_META.weight;
+  const fitNote = product?.fit || DEFAULT_PRODUCT_META.fit;
+  const careInstructionsList = useMemo(() => {
+    if (Array.isArray(product?.careInstructions) && product.careInstructions.length > 0) {
+      return product.careInstructions;
+    }
+    return DEFAULT_PRODUCT_META.care;
+  }, [product]);
+
+  const sizeChartRows = useMemo(() => {
+    const normalizeSizeChart = (chart) => chart
+      .filter(row => row?.size)
+      .map(row => ({
+        size: row.size,
+        metrics: {
+          chest: `${row.chest}"` || '-',
+          length: `${row.length}"` || '-',
+          sleeve: `${row.sleeve}"` || '-',
+        }
+      }));
+
+    if (Array.isArray(product?.sizeChart) && product.sizeChart.length > 0) {
+      return normalizeSizeChart(product.sizeChart);
+    }
+
+    const uniqueSizes = Array.from(new Set(product?.sizes || []));
+    const sizesToUse = uniqueSizes.length > 0 ? uniqueSizes : Object.keys(SIZE_CHART_REFERENCE);
+    return sizesToUse
+      .map(size => ({ size, metrics: SIZE_CHART_REFERENCE[size] }))
+      .filter(row => row.metrics);
+  }, [product?.sizeChart, product?.sizes]);
 
   const handleAddToCart = () => {
     if (!product || !currentVariant) return;
@@ -192,6 +292,40 @@ export default function ProductPage() {
     }
   };
 
+  // 🟢 WhatsApp Message Generation
+  // To get the full URL of the product page:
+  let productPageUrl = '';
+  if (typeof window !== 'undefined') {
+    productPageUrl = window.location.origin + pathname;
+  }
+  // Fallback (for SSR/SSG, fallback to a best guess, Next.js version agnostic)
+  if (!productPageUrl && typeof window === 'undefined' && process.env.NEXT_PUBLIC_SITE_URL) {
+    productPageUrl = process.env.NEXT_PUBLIC_SITE_URL + pathname;
+  }
+
+  // WhatsApp message content
+  const whatsappDefaultMessage = useMemo(() => {
+    const parts = [
+      "Hi, I'm interested in this product.",
+      product?.title ? `Product: ${product.title}` : "",
+      productPageUrl ? productPageUrl : "",
+      "",
+      "I have a question about size, delivery, or fabric."
+    ].filter(Boolean).join('\n');
+    return encodeURIComponent(parts);
+  }, [product?.title, productPageUrl]);
+
+  const whatsappLink = useMemo(() => {
+    // Remove trailing slash if present in phone
+    let phone = BRAND.social.whatsapp.replace(/[^0-9]/g, '');
+    if (phone.startsWith('92') || phone.startsWith('03')) {
+      // Already formatted
+    } else if (phone.length === 11 && phone.startsWith('3')) {
+      phone = '92' + phone;
+    }
+    return `https://wa.me/${phone}?text=${whatsappDefaultMessage}`;
+  }, [whatsappDefaultMessage]);
+
   if (isLoading) {
     return (
       <main className="min-h-screen bg-white py-5">
@@ -238,53 +372,73 @@ export default function ProductPage() {
           {/* Product Images */}
           <div className="space-y-4">
             {/* Main Image */}
-            <div className="relative aspect-square bg-gray-100 rounded-lg overflow-hidden">
-              {currentImages[selectedImage] && (
-                <Image
-                  src={currentImages[selectedImage]}
-                  alt={product.title}
-                  fill
-                  className="object-cover"
-                  sizes="(max-width: 768px) 100vw, 50vw"
-                />
-              )}
-
-              {/* Product Badge */}
-              <div className="absolute top-4 left-4">
-                {product.badge === 'sale' && currentVariant?.discount > 0 && (
-                  <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    -{currentVariant.discount}%
-                  </span>
-                )}
-                {product.badge === 'new' && (
-                  <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
-                    NEW
-                  </span>
-                )}
-              </div>
-            </div>
-
-            {/* Thumbnail Images */}
-            {currentImages.length > 1 && (
-              <div className="grid grid-cols-4 gap-2">
-                {currentImages.map((image, index) => (
-                  <button
-                    key={index}
-                    onClick={() => setSelectedImage(index)}
-                    className={`relative aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 transition-colors ${selectedImage === index ? 'border-gray-900' : 'border-transparent'
-                      }`}
+            <div className="sticky top-[80px] z-30">
+              <div className="relative bg-gray-100 rounded-2xl overflow-hidden">
+                {currentImages.length > 0 ? (
+                  <Slider
+                    {...sliderSettings}
+                    ref={sliderRef}
+                    beforeChange={(_, next) => setSelectedImage(next)}
                   >
-                    <Image
-                      src={image}
-                      alt={`${product.title} ${index + 1}`}
-                      fill
-                      className="object-cover"
-                      sizes="100px"
-                    />
-                  </button>
-                ))}
+                    {currentImages.map((imgSrc, index) => (
+                      <div key={`${imgSrc}-${index}`}>
+                        <div className="relative w-full h-[70vw] min-h-[320px] sm:h-[500px] lg:h-[640px]">
+                          <Image
+                            src={imgSrc}
+                            alt={`${product.title} view ${index + 1}`}
+                            fill
+                            className="object-cover"
+                            sizes="(max-width: 768px) 100vw, 50vw"
+                            priority={index === 0}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </Slider>
+                ) : (
+                  <div className="aspect-square bg-gray-100 rounded-2xl" />
+                )}
+
+                {/* Product Badge */}
+                <div className="absolute top-4 left-4 z-10">
+                  {product.badge === 'sale' && currentVariant?.discount > 0 && (
+                    <span className="bg-red-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                      -{currentVariant.discount}%
+                    </span>
+                  )}
+                  {product.badge === 'new' && (
+                    <span className="bg-green-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+                      NEW
+                    </span>
+                  )}
+                </div>
               </div>
-            )}
+
+              {/* Thumbnail Images */}
+              {currentImages.length > 1 && (
+                <div className="grid grid-cols-4 gap-2">
+                  {currentImages.map((image, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        setSelectedImage(index);
+                        sliderRef.current?.slickGoTo(index);
+                      }}
+                      className={`relative aspect-square bg-gray-100 rounded-lg overflow-hidden border-2 transition-colors ${selectedImage === index ? 'border-gray-900' : 'border-transparent'
+                        }`}
+                    >
+                      <Image
+                        src={image}
+                        alt={`${product.title} ${index + 1}`}
+                        fill
+                        className="object-cover"
+                        sizes="100px"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Product Info */}
@@ -349,6 +503,7 @@ export default function ProductPage() {
                         onClick={() => {
                           setSelectedColor(color);
                           setSelectedImage(0);
+                          sliderRef.current?.slickGoTo(0);
                         }}
                         className={`relative group flex items-center space-x-2 px-4 py-2 border-2 rounded-lg transition-all ${selectedColor === color
                           ? 'border-gray-900 bg-gray-50 shadow-md scale-105'
@@ -431,6 +586,43 @@ export default function ProductPage() {
                 ) : (
                   <p className="text-sm text-gray-500">No sizes available for this color</p>
                 )}
+                <div className="mt-4 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsSizeChartOpen(prev => !prev)}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    <Ruler className="w-4 h-4" />
+                    {isSizeChartOpen ? 'Hide size chart' : 'View in-product size chart'}
+                  </button>
+                  <Link href="/size-guide" className="text-xs text-gray-500 hover:text-gray-800 underline">
+                    Full size guide
+                  </Link>
+                </div>
+                {isSizeChartOpen && (
+                  <div className="mt-4 overflow-x-auto rounded-lg border border-gray-200">
+                    <table className="min-w-full text-sm text-left">
+                      <thead className="bg-gray-50">
+                        <tr>
+                          <th className="px-4 py-2 font-semibold text-gray-600">Size</th>
+                          <th className="px-4 py-2 font-semibold text-gray-600">Chest</th>
+                          <th className="px-4 py-2 font-semibold text-gray-600">Length</th>
+                          <th className="px-4 py-2 font-semibold text-gray-600">Sleeve</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sizeChartRows.map(({ size, metrics }) => (
+                          <tr key={size} className="border-t border-gray-100">
+                            <td className="px-4 py-2 font-medium text-gray-900">{size}</td>
+                            <td className="px-4 py-2 text-gray-700">{metrics.chest}</td>
+                            <td className="px-4 py-2 text-gray-700">{metrics.length}</td>
+                            <td className="px-4 py-2 text-gray-700">{metrics.sleeve}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             )}
 
@@ -456,7 +648,7 @@ export default function ProductPage() {
                   <Plus className="w-4 h-4" />
                 </button>
               </div>
-              {currentVariant && (
+              {/* {currentVariant && (
                 <p className={`text-sm mt-2 ${availableStock > 0 ? 'text-gray-500' : 'text-red-600 font-medium'}`}>
                   {availableStock > 0
                     ? `${availableStock} ${availableStock === 1 ? 'item' : 'items'} available in inventory`
@@ -467,7 +659,7 @@ export default function ProductPage() {
                     </span>
                   )}
                 </p>
-              )}
+              )} */}
             </div>
 
             {/* Action Buttons */}
@@ -497,6 +689,27 @@ export default function ProductPage() {
                 <Heart className={`w-5 h-5 ${isInWishlist ? 'fill-current' : ''}`} />
                 <span>{isInWishlist ? 'Remove from Wishlist' : 'Add to Wishlist'}</span>
               </button>
+
+              {/* WhatsApp Button with Default Message and Product Link */}
+              <a
+                href={whatsappLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex w-full items-center justify-center gap-2 rounded-lg border border-green-500 bg-green-50 px-6 py-3 text-sm font-medium text-green-700 hover:bg-green-100 transition-colors"
+              >
+                <MessageCircle className="w-5 h-5" />
+                Ask on WhatsApp (size, delivery, fabric)
+              </a>
+            </div>
+
+            <div className="rounded-xl border border-blue-100 bg-blue-50 p-4 flex items-start gap-3">
+              <Truck className="w-5 h-5 text-blue-600 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold text-blue-900">Estimated delivery & returns</p>
+                <p className="text-xs text-blue-700">
+                  1-2 working days in Lahore, 3-5 nationwide. Open parcel + cash on delivery. Easy 7-day exchanges.
+                </p>
+              </div>
             </div>
 
             {/* Features */}
@@ -507,12 +720,43 @@ export default function ProductPage() {
                   {product.features.map((feature, index) => (
                     <li key={index} className="flex items-center space-x-2 text-gray-600">
                       <div className="w-1.5 h-1.5 bg-gray-400 rounded-full" />
-                      <span>{feature}</span>
+                      <span className="capitalize">{feature}</span>
                     </li>
                   ))}
                 </ul>
               </div>
             )}
+
+            {/* Product Details */}
+            <div className="rounded-2xl border border-gray-200 p-5 space-y-4">
+              <h3 className="text-lg font-semibold text-gray-900">Product details</h3>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-4 text-sm">
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-gray-500">Fabric</dt>
+                  <dd className="text-gray-800">{fabricBlend}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-gray-500">Weight</dt>
+                  <dd className="text-gray-800">{garmentWeight}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-gray-500">Fit</dt>
+                  <dd className="text-gray-800">{fitNote}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs uppercase tracking-wide text-gray-500">Open parcel</dt>
+                  <dd className="text-gray-800">Check before you pay on delivery</dd>
+                </div>
+              </dl>
+              <div>
+                <h4 className="text-sm font-semibold text-gray-900 mb-2">Care instructions</h4>
+                <ul className="list-disc pl-5 space-y-1 text-sm text-gray-600">
+                  {careInstructionsList.map((instruction, index) => (
+                    <li key={index}>{instruction}</li>
+                  ))}
+                </ul>
+              </div>
+            </div>
 
             {/* Trust Badges */}
             <div className="grid grid-cols-3 gap-4 pt-6 border-t border-gray-200">

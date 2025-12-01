@@ -57,6 +57,10 @@ export default function EditProductPage() {
     status: "active",
     featured: false,
     tags: "",
+    fabric: "",
+    gsm: "",
+    fit: "",
+    careInstructions: "",
   });
 
   const [variants, setVariants] = useState([
@@ -74,6 +78,9 @@ export default function EditProductPage() {
   ]);
 
   const categories = categoriesData?.data?.categories || categoriesData?.data || [];
+  const [sizeChartRows, setSizeChartRows] = useState([
+    { size: "", chest: "", length: "", sleeve: "" }
+  ]);
   const product = productData?.data;
 
   // Load product data when available
@@ -86,6 +93,10 @@ export default function EditProductPage() {
         status: product.status || "active",
         featured: product.featured || false,
         tags: product.tags?.join(", ") || "",
+        fabric: product.fabric || "",
+        gsm: product.gsm ? product.gsm.toString() : "",
+        fit: product.fit || "",
+        careInstructions: Array.isArray(product.careInstructions) ? product.careInstructions.join("\n") : "",
       });
 
       if (product.variants && product.variants.length > 0) {
@@ -110,6 +121,19 @@ export default function EditProductPage() {
             };
           })
         );
+      }
+
+      if (Array.isArray(product.sizeChart) && product.sizeChart.length > 0) {
+        setSizeChartRows(
+          product.sizeChart.map((row) => ({
+            size: row.size || "",
+            chest: row.chest || "",
+            length: row.length || "",
+            sleeve: row.sleeve || "",
+          }))
+        );
+      } else {
+        setSizeChartRows([{ size: "", chest: "", length: "", sleeve: "" }]);
       }
     }
   }, [product]);
@@ -159,6 +183,28 @@ export default function EditProductPage() {
     }
 
     setVariants(newVariants);
+  };
+
+  const handleSizeChartChange = (index, field, value) => {
+    setSizeChartRows(prev => {
+      const updated = [...prev];
+      updated[index] = {
+        ...updated[index],
+        [field]: value
+      };
+      return updated;
+    });
+  };
+
+  const addSizeChartRow = () => {
+    setSizeChartRows(prev => [...prev, { size: "", chest: "", length: "", sleeve: "" }]);
+  };
+
+  const removeSizeChartRow = (index) => {
+    setSizeChartRows(prev => {
+      if (prev.length === 1) return prev;
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
   const addVariant = () => {
@@ -235,6 +281,24 @@ export default function EditProductPage() {
         ? formData.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0)
         : [];
 
+      const careInstructionsArray = formData.careInstructions
+        ? formData.careInstructions
+          .split('\n')
+          .map(instruction => instruction.trim())
+          .filter(instruction => instruction.length > 0)
+        : [];
+
+      const sizeChartPayload = sizeChartRows
+        .map(row => ({
+          size: row.size.trim(),
+          chest: row.chest.trim(),
+          length: row.length.trim(),
+          sleeve: row.sleeve.trim(),
+        }))
+        .filter(row => row.size && (row.chest || row.length || row.sleeve));
+
+      const parsedGsm = Number(formData.gsm);
+
       const productData = {
         name: formData.name,
         description: formData.description,
@@ -242,6 +306,11 @@ export default function EditProductPage() {
         status: formData.status,
         featured: formData.featured,
         tags: tagsArray,
+        fabric: formData.fabric || undefined,
+        gsm: Number.isFinite(parsedGsm) && parsedGsm > 0 ? parsedGsm : undefined,
+        fit: formData.fit || undefined,
+        careInstructions: careInstructionsArray,
+        sizeChart: sizeChartPayload,
         variants: variants.map((v) => ({
           color: v.color,
           colorCode: v.colorCode || undefined,
@@ -342,6 +411,62 @@ export default function EditProductPage() {
               />
             </div>
 
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-cardForeground mb-2">
+                  Fabric Composition
+                </label>
+                <Input
+                  name="fabric"
+                  value={formData.fabric}
+                  onChange={handleInputChange}
+                  placeholder="e.g. 80% cotton / 20% polyester"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-cardForeground mb-2">
+                  Fabric Weight (GSM)
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  name="gsm"
+                  value={formData.gsm}
+                  onChange={handleInputChange}
+                  placeholder="e.g. 320"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-cardForeground mb-2">
+                  Fit Note
+                </label>
+                <Input
+                  name="fit"
+                  value={formData.fit}
+                  onChange={handleInputChange}
+                  placeholder="e.g. Relaxed, true-to-size"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-cardForeground mb-2">
+                Care Instructions
+              </label>
+              <TextArea
+                name="careInstructions"
+                value={formData.careInstructions}
+                onChange={handleInputChange}
+                placeholder="Add one care instruction per line"
+                rows={4}
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                Leave blank to use default messaging on the storefront.
+              </p>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-cardForeground mb-2">
                 Tags
@@ -410,6 +535,86 @@ export default function EditProductPage() {
               </div>
             </div>
           </div>
+        </motion.div>
+
+        {/* Size Chart Section */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.15 }}
+          className="bg-cardBackground p-6 rounded-lg shadow"
+        >
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-lg font-semibold">Size Chart (optional)</h2>
+            <Button
+              type="button"
+              onClick={addSizeChartRow}
+              className="bg-gray-900 text-white hover:bg-gray-800 px-3 py-2 flex items-center gap-2"
+            >
+              <FaPlus /> Add Row
+            </Button>
+          </div>
+
+          <div className="space-y-4">
+            {sizeChartRows.map((row, index) => (
+              <div key={index} className="grid grid-cols-2 md:grid-cols-5 gap-3 items-end border border-dashed border-gray-200 p-3 rounded-lg">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Size
+                  </label>
+                  <Input
+                    value={row.size}
+                    onChange={(e) => handleSizeChartChange(index, "size", e.target.value)}
+                    placeholder="e.g. M"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Chest
+                  </label>
+                  <Input
+                    value={row.chest}
+                    onChange={(e) => handleSizeChartChange(index, "chest", e.target.value)}
+                    placeholder='e.g. 21"'
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Length
+                  </label>
+                  <Input
+                    value={row.length}
+                    onChange={(e) => handleSizeChartChange(index, "length", e.target.value)}
+                    placeholder='e.g. 28"'
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Sleeve
+                  </label>
+                  <Input
+                    value={row.sleeve}
+                    onChange={(e) => handleSizeChartChange(index, "sleeve", e.target.value)}
+                    placeholder='e.g. 25"'
+                  />
+                </div>
+                <div className="flex items-center justify-end">
+                  {sizeChartRows.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeSizeChartRow(index)}
+                      className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm"
+                    >
+                      <FaTrash /> Remove
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500 mt-4">
+            Add at least the sizes you produce. If left empty, the storefront will fallback to the default size reference.
+          </p>
         </motion.div>
 
         {/* Variants Section */}

@@ -28,7 +28,7 @@ export async function GET(request) {
       query.status = status;
     }
 
-    if (category) {
+    if (category && category !== 'all') {
       query.category = category;
     }
 
@@ -173,7 +173,7 @@ export async function GET(request) {
 export const POST = requireAdmin(async (request) => {
   try {
     const body = await request.json();
-    const { name, description, category, variants, status, featured, tags } = body || {};
+    const { name, description, category, variants, status, featured, tags, fabric, gsm, fit, careInstructions, sizeChart } = body || {};
 
     if (!name || !description || !category) {
       return NextResponse.json(
@@ -220,6 +220,24 @@ export const POST = requireAdmin(async (request) => {
       );
     }
 
+    const parsedGsm = Number(gsm);
+    const normalizedGsm = Number.isFinite(parsedGsm) && parsedGsm > 0 ? parsedGsm : undefined;
+
+    const normalizedCareInstructions = Array.isArray(careInstructions)
+      ? careInstructions.filter(instruction => typeof instruction === 'string' && instruction.trim().length > 0)
+      : [];
+
+    const normalizedSizeChart = Array.isArray(sizeChart)
+      ? sizeChart
+        .map(row => ({
+          size: row?.size?.trim() || '',
+          chest: row?.chest?.trim() || '',
+          length: row?.length?.trim() || '',
+          sleeve: row?.sleeve?.trim() || '',
+        }))
+        .filter(row => row.size && (row.chest || row.length || row.sleeve))
+      : [];
+
     const product = await Product.create({
       name,
       description,
@@ -227,7 +245,12 @@ export const POST = requireAdmin(async (request) => {
       variants,
       status: status || 'active',
       featured: featured || false,
-      tags: tags || []
+      tags: tags || [],
+      fabric: fabric?.trim() || undefined,
+      gsm: normalizedGsm,
+      fit: fit?.trim() || undefined,
+      careInstructions: normalizedCareInstructions,
+      sizeChart: normalizedSizeChart
     });
 
     await product.populate('category', 'name slug');

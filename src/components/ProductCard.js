@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Heart, ShoppingCart } from 'lucide-react';
 import { useSelector, useDispatch } from 'react-redux';
 import { addToCart } from '@/redux/slices/Cart';
@@ -20,6 +20,7 @@ export default function ProductCard({ product }) {
     discountPercentage,
     image,
     images,
+    hoverImage,
     sizes = ['M', 'L', 'XL'],
     colors = [],
     badge = 'sale',
@@ -27,6 +28,7 @@ export default function ProductCard({ product }) {
   } = product;
 
   const dispatch = useDispatch();
+  const router = useRouter();
   const { items: wishlistItems } = useSelector(state => state.wishlist);
   const { items: cartItems } = useSelector(state => state.cart);
   const [selectedSize, setSelectedSize] = useState('');
@@ -77,36 +79,36 @@ export default function ProductCard({ product }) {
   }, [currentVariant, image]);
 
   // Get next variant's image for hover
-  const hoverImage = useMemo(() => {
-    if (!_fullData?.variants || _fullData.variants.length === 0) {
-      // Fallback to current variant's second image or same image
-      const currentImages = currentVariant?.images || images || [];
-      return currentImages[1] || currentImages[0] || currentImage;
-    }
+  // const hoverImage = useMemo(() => {
+  //   if (!_fullData?.variants || _fullData.variants.length === 0) {
+  //     // Fallback to current variant's second image or same image
+  //     const currentImages = currentVariant?.images || images || [];
+  //     return currentImages[1] || currentImages[0] || currentImage;
+  //   }
 
-    // Find current variant index in the variants array
-    const currentIndex = _fullData.variants.findIndex(v =>
-      v.color?.toLowerCase() === currentVariant?.color?.toLowerCase() &&
-      v.size === currentVariant?.size
-    );
+  //   // Find current variant index in the variants array
+  //   const currentIndex = _fullData.variants.findIndex(v =>
+  //     v.color?.toLowerCase() === currentVariant?.color?.toLowerCase() &&
+  //     v.size === currentVariant?.size
+  //   );
 
-    // Get next variant (circular - if last, go to first)
-    const nextIndex = currentIndex >= 0
-      ? (currentIndex + 1) % _fullData.variants.length
-      : 0;
+  //   // Get next variant (circular - if last, go to first)
+  //   const nextIndex = currentIndex >= 0
+  //     ? (currentIndex + 1) % _fullData.variants.length
+  //     : 0;
 
-    const nextVariant = _fullData.variants[nextIndex];
-    const nextVariantImages = nextVariant?.images || [];
+  //   const nextVariant = _fullData.variants[nextIndex];
+  //   const nextVariantImages = nextVariant?.images || [];
 
-    // Return next variant's first image, or fallback to current variant's second image
-    if (nextVariantImages.length > 0) {
-      return nextVariantImages[0];
-    }
+  //   // Return next variant's first image, or fallback to current variant's second image
+  //   if (nextVariantImages.length > 0) {
+  //     return nextVariantImages[0];
+  //   }
 
-    // Fallback to current variant's second image or first image
-    const currentImages = currentVariant?.images || [];
-    return currentImages[1] || currentImages[0] || currentImage;
-  }, [_fullData, currentVariant, images, currentImage]);
+  //   // Fallback to current variant's second image or first image
+  //   const currentImages = currentVariant?.images || [];
+  //   return currentImages[1] || currentImages[0] || currentImage;
+  // }, [_fullData, currentVariant, images, currentImage]);
 
   const stockQuantity = currentVariant?.quantity || 0;
   const isOutOfStock = stockQuantity <= 0;
@@ -150,7 +152,8 @@ export default function ProductCard({ product }) {
     }).format(Math.round(price));
   };
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (event) => {
+    event?.stopPropagation();
     if (isOutOfStock) {
       toast.error('Out of Stock', { description: 'This product is currently out of stock' });
       return;
@@ -179,7 +182,8 @@ export default function ProductCard({ product }) {
     toast.success('Added to cart', { description: `${title} (${selectedSize})` });
   };
 
-  const handleWishlistToggle = () => {
+  const handleWishlistToggle = (event) => {
+    event?.stopPropagation();
     if (isInWishlist) {
       dispatch(removeFromWishlist(id));
       toast('Removed from wishlist', { description: title });
@@ -190,7 +194,18 @@ export default function ProductCard({ product }) {
   };
 
   return (
-    <div className="product-card group animate-fade-in">
+    <div
+      className="product-card group animate-fade-in cursor-pointer"
+      role="link"
+      tabIndex={0}
+      onClick={() => router.push(`/products/${id}`)}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          router.push(`/products/${id}`);
+        }
+      }}
+    >
       <div className="relative overflow-hidden">
         {/* Product Image */}
         <div className="relative aspect-square overflow-hidden">
@@ -226,7 +241,9 @@ export default function ProductCard({ product }) {
           </div>
 
           {/* Quick Actions */}
-          <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100">
+          <div
+            className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center opacity-0 group-hover:opacity-100"
+          >
             <div className="flex space-x-2">
               <button
                 onClick={handleWishlistToggle}
@@ -251,11 +268,9 @@ export default function ProductCard({ product }) {
 
         {/* Product Info */}
         <div className="p-4">
-          <Link href={`/products/${id}`}>
-            <h3 className="text-lg font-medium text-gray-900 hover:text-blue-500 transition-colors mb-2 line-clamp-1">
-              {title}
-            </h3>
-          </Link>
+          <h3 className="text-lg font-medium text-gray-900 mb-2 line-clamp-1">
+            {title}
+          </h3>
 
           {/* Colors */}
           {colors && colors.length > 0 && (
@@ -277,8 +292,9 @@ export default function ProductCard({ product }) {
                   return (
                     <button
                       key={index}
-                      onClick={(e) => {
-                        e.preventDefault();
+                      onClick={(event) => {
+                        event.preventDefault();
+                        event.stopPropagation();
                         setSelectedColor(color);
                       }}
                       disabled={!hasAvailableStock}
@@ -325,8 +341,9 @@ export default function ProductCard({ product }) {
                 return (
                   <button
                     key={size}
-                    onClick={(e) => {
-                      e.preventDefault();
+                    onClick={(event) => {
+                      event.preventDefault();
+                      event.stopPropagation();
                       setSelectedSize(size);
                     }}
                     disabled={!isAvailable}
