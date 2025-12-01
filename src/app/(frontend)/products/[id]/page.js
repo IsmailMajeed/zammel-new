@@ -382,7 +382,8 @@ export default function ProductPage() {
                   >
                     {currentImages.map((imgSrc, index) => (
                       <div key={`${imgSrc}-${index}`}>
-                        <div className="relative w-full h-[70vw] min-h-[320px] sm:h-[500px] lg:h-[640px]">
+                        {/* Taller height on mobile screens for vertical image */}
+                        <div className="relative w-full h-[120vw] min-h-[400px] sm:h-[500px] lg:h-[640px]">
                           <Image
                             src={imgSrc}
                             alt={`${product.title} view ${index + 1}`}
@@ -396,7 +397,7 @@ export default function ProductPage() {
                     ))}
                   </Slider>
                 ) : (
-                  <div className="aspect-square bg-gray-100 rounded-2xl" />
+                  <div className="aspect-[3/4] bg-gray-100 rounded-2xl min-h-[400px]" />
                 )}
 
                 {/* Product Badge */}
